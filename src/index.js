@@ -1,75 +1,150 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
+// ----------------------------
+// BASIC SETUP
+// ----------------------------
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(
+  75,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  1000
+);
 camera.position.set(0, 5, 15);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 
-// ----------------------------
-// BRANCH DATA
-// ----------------------------
-let branchLength = 2;
-
-// Start and end of branch
-let start = new THREE.Vector3(0, 0, 0);
-let end = new THREE.Vector3(0, branchLength, 0);
-
-// Branch geometry (straight line)
-let points = [start, end];
-let branchGeometry = new THREE.BufferGeometry().setFromPoints(points);
-
-let branchMaterial = new THREE.LineBasicMaterial({ color: 0x8b4513 }); // Brown branch color
-let branch = new THREE.Line(branchGeometry, branchMaterial);
-scene.add(branch);
+// Group to store branches safely
+const branchGroup = new THREE.Group();
+scene.add(branchGroup);
 
 // ----------------------------
-// NODE (sphere at the end)
+// TREE SETTINGS
 // ----------------------------
-const nodeGeometry = new THREE.SphereGeometry(0.2, 16, 16);
-const nodeMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-const node = new THREE.Mesh(nodeGeometry, nodeMaterial);
-
-node.position.copy(end);
-scene.add(node);
+const MAX_GENERATIONS = 2;   // <<< STOP after 2 generations
+const GROW_SPEED = 0.03;
 
 // ----------------------------
-// GROW FUNCTION
+// INITIAL BRANCH (GENERATION 0)
 // ----------------------------
-function growBranch(stepAmount = 1) {
-  branchLength += stepAmount;
+let branches = [
+  {
+    start: new THREE.Vector3(0, 0, 0),
+    direction: new THREE.Vector3(0, 1, 0), // always straight up for trunk
+    length: 0.1,
+    maxLength: 2,
+    generation: 0,
+    hasSplit: false
+  }
+];
 
-  // Update end point
-  end = new THREE.Vector3(0, branchLength, 0);
+// ----------------------------
+// UPDATE BRANCH LOGIC
+// ----------------------------
+function updateBranches() {
+  let newBranches = [];
 
-  // Update line geometry
-  let newPoints = [start, end];
-  branch.geometry.setFromPoints(newPoints);
+  branches.forEach(branch => {
 
-  // Move node
-  node.position.copy(end);
+    // Grow until target length
+    if (branch.length < branch.maxLength - 0.01) {
+      branch.length += GROW_SPEED;
+      return;
+    }
+
+    // Stop if branch already split
+    if (branch.hasSplit) return;
+
+    // Stop if max generations reached
+    if (branch.generation >= MAX_GENERATIONS) return;
+
+    branch.hasSplit = true;
+
+    // Compute end of the branch
+    const endPoint = branch.start.clone().add(
+      branch.direction.clone().multiplyScalar(branch.length)
+    );
+
+    // -------- Left Child --------
+    newBranches.push({
+      start: endPoint.clone(),
+      direction: branch.direction
+        .clone()
+        .applyAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI / 4), // 45° left
+      length: 0.1,
+      maxLength: branch.maxLength * 0.7,
+      generation: branch.generation + 1,
+      hasSplit: false
+    });
+
+    // -------- Right Child --------
+    newBranches.push({
+      start: endPoint.clone(),
+      direction: branch.direction
+        .clone()
+        .applyAxisAngle(new THREE.Vector3(0, 0, 1), -Math.PI / 4), // 45° right
+      length: 0.1,
+      maxLength: branch.maxLength * 0.7,
+      generation: branch.generation + 1,
+      hasSplit: false
+    });
+  });
+
+  // Add new branches (only once)
+  if (newBranches.length > 0) {
+    branches.push(...newBranches);
+  }
 }
 
 // ----------------------------
-// KEYBOARD INPUT
+// DRAW BRANCHES
 // ----------------------------
-window.addEventListener("keydown", (e) => {
-  if (e.key === "1") growBranch(1);
-  if (e.key === "2") growBranch(2);
-  if (e.key === "3") growBranch(3);
-});
+function drawBranches() {
+  // Prevent memory leak
+  while (branchGroup.children.length > 0) {
+    branchGroup.remove(branchGroup.children[0]);
+  }
+
+  branches.forEach(branch => {
+    const start = branch.start;
+    const end = branch.start
+      .clone()
+      .add(branch.direction.clone().multiplyScalar(branch.length));
+
+    // Branch line
+    const geo = new THREE.BufferGeometry().setFromPoints([start, end]);
+    const mat = new THREE.LineBasicMaterial({ color: 0x8b4513 });
+    const line = new THREE.Line(geo, mat);
+    branchGroup.add(line);
+
+    // Node
+    const sphereGeo = new THREE.SphereGeometry(0.12, 8, 8);
+    const sphereMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+    const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+    sphere.position.copy(end);
+    branchGroup.add(sphere);
+  });
+}
 
 // ----------------------------
 // ANIMATION LOOP
 // ----------------------------
 function animate() {
+  updateBranches();
+  drawBranches();
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
 }
 animate();
+
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
