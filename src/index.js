@@ -1,150 +1,228 @@
+// src/index.js
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { CSS2DRenderer, CSS2DObject } from "three/examples/jsm/renderers/CSS2DRenderer.js";
+
+/*
+  Family data (from you):
+  Root: Zahra Rajab
+  Children: Yunus, Mustafa, Elly
+  Grandchildren:
+    Yunus -> Nuriat, Zahra
+    Mustafa -> Humail
+    Elly -> none
+*/
+const familyMap = {
+  "Zahra Rajab": ["Yunus Habib", "Mustafa Habib", "Elly Sirunya"],
+  "Yunus Habib": ["Nuriat Habib", "Zahra Habib"],
+  "Mustafa Habib": ["Humail Mustafa"],
+  "Elly Sirunya": [],
+  // grandchildren children are empty by default
+  "Nuriat Habib": [],
+  "Zahra Habib": [],
+  "Humail Mustafa": []
+};
 
 // ----------------------------
-// BASIC SETUP
+// Basic Three.js setup
 // ----------------------------
-const renderer = new THREE.WebGLRenderer();
+const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio ? window.devicePixelRatio : 1);
 document.body.appendChild(renderer.domElement);
 
-const scene = new THREE.Scene();
+const labelRenderer = new CSS2DRenderer();
+labelRenderer.setSize(window.innerWidth, window.innerHeight);
+labelRenderer.domElement.style.position = "absolute";
+labelRenderer.domElement.style.top = "0px";
+labelRenderer.domElement.style.pointerEvents = "none";
+document.body.appendChild(labelRenderer.domElement);
 
-const camera = new THREE.PerspectiveCamera(
-  75,
-  window.innerWidth / window.innerHeight,
-  0.1,
-  1000
-);
-camera.position.set(0, 5, 15);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xf0f4f8);
+
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.set(0, 6, 12);
 
 const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 2, 0);
+controls.update();
 
-// Group to store branches safely
+// groups for safe cleanup
 const branchGroup = new THREE.Group();
 scene.add(branchGroup);
 
 // ----------------------------
-// TREE SETTINGS
+// Tree settings & initial branch
 // ----------------------------
-const MAX_GENERATIONS = 2;   // <<< STOP after 2 generations
+const MAX_GENERATIONS = 2;     // stop at second generation
 const GROW_SPEED = 0.03;
 
-// ----------------------------
-// INITIAL BRANCH (GENERATION 0)
-// ----------------------------
 let branches = [
   {
+    // trunk (root)
+    name: "Zahra Rajab",
     start: new THREE.Vector3(0, 0, 0),
-    direction: new THREE.Vector3(0, 1, 0), // always straight up for trunk
+    direction: new THREE.Vector3(0, 1, 0),
     length: 0.1,
-    maxLength: 2,
+    maxLength: 2.2,
     generation: 0,
     hasSplit: false
   }
 ];
 
+// keep label objects to clear them each frame
+let labelObjects = [];
+
 // ----------------------------
-// UPDATE BRANCH LOGIC
+// Helper: create children for a branch using familyMap
+// returns an array of child branch objects
+// ----------------------------
+function createChildrenForBranch(parent) {
+  const childrenNames = familyMap[parent.name] || [];
+  const count = childrenNames.length;
+  if (count === 0) return [];
+
+  // spread angles across -45..45 deg (in radians)
+  const span = Math.PI / 2; // 90deg total
+  const startAngle = -span / 2;
+
+  const children = [];
+  for (let i = 0; i < count; i++) {
+    const t = count === 1 ? 0.5 : i / (count - 1); // normalized [0..1]
+    const angle = startAngle + t * span;
+    const dir = parent.direction.clone().applyAxisAngle(new THREE.Vector3(0, 0, 1), angle).normalize();
+
+    const childName = childrenNames[i];
+    children.push({
+      name: childName,
+      start: parent.start.clone().add(parent.direction.clone().multiplyScalar(parent.length)), // end point
+      direction: dir,
+      length: 0.08,
+      maxLength: parent.maxLength * 0.7,
+      generation: parent.generation + 1,
+      hasSplit: false
+    });
+  }
+  return children;
+}
+
+// ----------------------------
+// Update branches: growth + split according to familyMap and MAX_GENERATIONS
 // ----------------------------
 function updateBranches() {
-  let newBranches = [];
+  const newBranches = [];
 
-  branches.forEach(branch => {
-
-    // Grow until target length
+  for (let branch of branches) {
+    // grow until near maxLength
     if (branch.length < branch.maxLength - 0.01) {
-      branch.length += GROW_SPEED;
-      return;
+      branch.length = Math.min(branch.length + GROW_SPEED, branch.maxLength);
+      continue;
     }
 
-    // Stop if branch already split
-    if (branch.hasSplit) return;
+    // If already split or reached generation limit, do nothing further
+    if (branch.hasSplit) continue;
+    if (branch.generation >= MAX_GENERATIONS) continue;
 
-    // Stop if max generations reached
-    if (branch.generation >= MAX_GENERATIONS) return;
-
+    // mark as split so we only do this once
     branch.hasSplit = true;
 
-    // Compute end of the branch
-    const endPoint = branch.start.clone().add(
-      branch.direction.clone().multiplyScalar(branch.length)
-    );
-
-    // -------- Left Child --------
-    newBranches.push({
-      start: endPoint.clone(),
-      direction: branch.direction
-        .clone()
-        .applyAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI / 4), // 45° left
-      length: 0.1,
-      maxLength: branch.maxLength * 0.7,
-      generation: branch.generation + 1,
-      hasSplit: false
-    });
-
-    // -------- Right Child --------
-    newBranches.push({
-      start: endPoint.clone(),
-      direction: branch.direction
-        .clone()
-        .applyAxisAngle(new THREE.Vector3(0, 0, 1), -Math.PI / 4), // 45° right
-      length: 0.1,
-      maxLength: branch.maxLength * 0.7,
-      generation: branch.generation + 1,
-      hasSplit: false
-    });
-  });
-
-  // Add new branches (only once)
-  if (newBranches.length > 0) {
-    branches.push(...newBranches);
+    // create children if family map says so
+    const children = createChildrenForBranch(branch);
+    if (children.length > 0) {
+      newBranches.push(...children);
+    }
   }
+
+  if (newBranches.length > 0) branches.push(...newBranches);
 }
 
 // ----------------------------
-// DRAW BRANCHES
+// Draw branches + nodes + labels
+// we clear previous frame's branchGroup & labels safely
 // ----------------------------
-function drawBranches() {
-  // Prevent memory leak
-  while (branchGroup.children.length > 0) {
-    branchGroup.remove(branchGroup.children[0]);
+function drawBranchesAndLabels() {
+  // clear branch meshes
+  while (branchGroup.children.length) branchGroup.remove(branchGroup.children[0]);
+
+  // remove old label DOM objects
+  for (let lbl of labelObjects) {
+    if (lbl.parent) lbl.parent.remove(lbl);
   }
+  labelObjects = [];
 
-  branches.forEach(branch => {
+  // draw each branch and its tip sphere + label
+  for (let branch of branches) {
     const start = branch.start;
-    const end = branch.start
-      .clone()
-      .add(branch.direction.clone().multiplyScalar(branch.length));
+    const end = branch.start.clone().add(branch.direction.clone().multiplyScalar(branch.length));
 
-    // Branch line
-    const geo = new THREE.BufferGeometry().setFromPoints([start, end]);
-    const mat = new THREE.LineBasicMaterial({ color: 0x8b4513 });
-    const line = new THREE.Line(geo, mat);
+    // line geometry
+    const geom = new THREE.BufferGeometry().setFromPoints([start, end]);
+    const mat = new THREE.LineBasicMaterial({ color: 0x8b4513, linewidth: 2 });
+    const line = new THREE.Line(geom, mat);
     branchGroup.add(line);
 
-    // Node
-    const sphereGeo = new THREE.SphereGeometry(0.12, 8, 8);
-    const sphereMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-    const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+    // node sphere at tip
+    const sphereGeom = new THREE.SphereGeometry(0.12, 12, 12);
+    const sphereMat = new THREE.MeshStandardMaterial({ color: 0xff6b6b, emissive: 0x220000, roughness: 0.7 });
+    const sphere = new THREE.Mesh(sphereGeom, sphereMat);
     sphere.position.copy(end);
     branchGroup.add(sphere);
-  });
+
+    // ---- label as HTML element via CSS2DObject ----
+    const labelDiv = document.createElement("div");
+    labelDiv.className = "label";
+    labelDiv.textContent = branch.name || "Unnamed";
+    // optional: show generation small
+    // labelDiv.textContent += ` (g${branch.generation})`;
+
+    const labelObj = new CSS2DObject(labelDiv);
+    labelObj.position.copy(end);
+    // add to scene (label renderer will handle overlay)
+    scene.add(labelObj);
+    labelObjects.push(labelObj);
+  }
 }
 
 // ----------------------------
-// ANIMATION LOOP
+// Lighting (small, enough to see mesh shading)
+ // ----------------------------
+const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+scene.add(ambient);
+const dir = new THREE.DirectionalLight(0xffffff, 0.6);
+dir.position.set(5, 10, 7);
+scene.add(dir);
+
+// ----------------------------
+// Animation loop
 // ----------------------------
 function animate() {
   updateBranches();
-  drawBranches();
+  drawBranchesAndLabels();
+
   renderer.render(scene, camera);
+  labelRenderer.render(scene, camera);
   requestAnimationFrame(animate);
 }
 animate();
 
+// ----------------------------
+// Resize handling
+// ----------------------------
 window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  labelRenderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ----------------------------
+// Small helper: camera reset (optional)
+// ----------------------------
+window.addEventListener("keydown", (e) => {
+  if (e.key === "r") {
+    camera.position.set(0, 6, 12);
+    controls.target.set(0,2,0);
+    controls.update();
+  }
 });
