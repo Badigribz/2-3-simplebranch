@@ -1,23 +1,56 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <meta charset="UTF-8" />
-    <title>Family Tree 3D</title>
+    <meta charset="utf-8" />
+    <title>Family Tree — Multi-Style Animations</title>
     <style>
-      body { margin: 0; overflow: hidden; font-family: Arial, Helvetica, sans-serif; }
-      .label {
-        background: rgba(0,0,0,0.6);
-        color: white;
-        padding: 4px 8px;
+      body { margin: 0; overflow: hidden; font-family: system-ui, Arial, Helvetica, sans-serif; background: #000; }
+      .ui {
+        position: absolute;
+        left: 12px;
+        top: 12px;
+        z-index: 50;
+        display: flex;
+        gap: 8px;
+      }
+      .ui button {
+        background: rgba(255,255,255,0.06);
+        color: #fff;
+        border: 1px solid rgba(255,255,255,0.08);
+        padding: 8px 12px;
         border-radius: 6px;
+        cursor: pointer;
+      }
+      .ui button.active { background: rgba(255,255,255,0.14); }
+      .label {
+        background: rgba(12,12,12,0.78);
+        color: #fff;
+        padding: 6px 10px;
+        border-radius: 8px;
         font-size: 13px;
         white-space: nowrap;
-        transform: translateY(-50%);
         pointer-events: none;
+        transform: translateY(-50%);
+        opacity: 0;
+        transition: opacity 260ms ease, transform 260ms ease;
+        box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+      }
+      .label.visible { opacity: 1; transform: translateY(-60%); }
+      .hint {
+        position: absolute; left: 12px; bottom: 12px; color: #ccc; font-size: 12px;
       }
     </style>
   </head>
   <body>
-    <script src="./src/index.js" type="module"></script>
+    <div class="ui" id="controls">
+      <button data-mode="A" class="active">A - Smooth</button>
+      <button data-mode="B">B - Organic Curved</button>
+      <button data-mode="C">C - Particles</button>
+      <button data-mode="D">D - Cinematic</button>
+      <button data-mode="E">E - Mix A+D</button>
+      <button id="reset">Reset</button>
+    </div>
+    <div class="hint">Press R to reset camera — toggle styles to compare.</div>
+     <script src="./src/index.js" type="module"></script>
   </body>
 </html>
