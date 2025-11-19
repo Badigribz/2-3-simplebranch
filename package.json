@@ -18,7 +18,11 @@
   },
   "homepage": "https://github.com/Badigribz/2-3-simplebranch#readme",
   "dependencies": {
+    "dat.gui": "^0.7.9",
+    "gsap": "^3.13.0",
     "parcel": "^2.16.1",
-    "three": "^0.181.1"
+    "postprocessing": "^6.38.0",
+    "simplex-noise": "^4.0.3",
+    "three": "^0.181.2"
   }
 }
