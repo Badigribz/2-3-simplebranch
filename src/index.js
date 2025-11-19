@@ -26,9 +26,7 @@ document.body.appendChild(renderer.domElement);
 
 const labelRenderer = new CSS2DRenderer();
 labelRenderer.setSize(window.innerWidth, window.innerHeight);
-labelRenderer.domElement.style.position = "absolute";
-labelRenderer.domElement.style.top = "0";
-labelRenderer.domElement.style.pointerEvents = "none";
+labelRenderer.domElement.id = "labels";
 document.body.appendChild(labelRenderer.domElement);
 
 const scene = new THREE.Scene();
@@ -198,11 +196,17 @@ function draw() {
     const div = document.createElement("div");
     div.className = "label";
     div.textContent = br.name || "Unnamed";
+
     const labelObj = new CSS2DObject(div);
-    labelObj.position.copy(tip);
-    scene.add(labelObj);
+
+    // attach label to sphere node
+    labelObj.position.set(0, 0.6, 0);  
+    sph.add(labelObj);
+
     labelObjs.push(labelObj);
-    setTimeout(()=>div.classList.add("visible"), 60 + Math.floor(prog*300));
+
+    // fade-in
+    setTimeout(() => div.classList.add("visible"), 80 + Math.floor(prog * 250));
 
     // particle spawn for mode C
     if (currentMode === "C" && prog >= 1 && !br._particlesSpawned) {

@@ -39,6 +39,20 @@
       .hint {
         position: absolute; left: 12px; bottom: 12px; color: #ccc; font-size: 12px;
       }
+      #labels {
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 5;        /* ensures labels are above WebGL but below UI */
+        pointer-events: none;
+      }
+        canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 1;     /* WebGL layer */
+      }
+
     </style>
   </head>
   <body>
@@ -51,6 +65,7 @@
       <button id="reset">Reset</button>
     </div>
     <div class="hint">Press R to reset camera — toggle styles to compare.</div>
+    <div id="labels">names</div>
      <script src="./src/index.js" type="module"></script>
   </body>
 </html>
