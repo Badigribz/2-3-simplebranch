@@ -205,8 +205,8 @@ function draw() {
 
     labelObjs.push(labelObj);
 
-    // fade-in
-    setTimeout(() => div.classList.add("visible"), 80 + Math.floor(prog * 250));
+    // immediately visible (for testing)
+    div.classList.add("visible");
 
     // particle spawn for mode C
     if (currentMode === "C" && prog >= 1 && !br._particlesSpawned) {
