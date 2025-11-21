@@ -2,7 +2,14 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { CSS2DRenderer, CSS2DObject } from "three/examples/jsm/renderers/CSS2DRenderer.js";
+import { createLeaves } from "./scene/leaves.js";
 
+
+function update(time) {
+  const t = performance.now();
+  leaves.update(16, t); // small dt param isn't used, but pass for API
+  // rest of your update...
+}
 /* ---------------------------
   Family Data (your names)
 --------------------------- */
@@ -34,6 +41,14 @@ scene.background = new THREE.Color(0x000000);
 
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.set(0, 6, 14);
+
+// NOW SAFE TO CALL LEAVES HERE
+const leaves = createLeaves(scene, {
+  count: 1600,
+  areaRadius: 6,
+ leafTextureURL: new URL('./assets/leaf.png', import.meta.url),
+  windStrength: 1.0
+});
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
