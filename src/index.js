@@ -4,12 +4,6 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { CSS2DRenderer, CSS2DObject } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import { createLeaves } from "./scene/leaves.js";
 
-
-function update(time) {
-  const t = performance.now();
-  leaves.update(16, t); // small dt param isn't used, but pass for API
-  // rest of your update...
-}
 /* ---------------------------
   Family Data (your names)
 --------------------------- */
@@ -42,14 +36,24 @@ scene.background = new THREE.Color(0x000000);
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.set(0, 6, 14);
 
-// NOW SAFE TO CALL LEAVES HERE
+/* ---------------------------
+  Leaves (instanced shader system)
+--------------------------- */
+// createLeaves returns { instancedMesh, update }
+// Use import.meta.url so bundlers resolve the asset path correctly
 const leaves = createLeaves(scene, {
   count: 1600,
   areaRadius: 6,
- leafTextureURL: new URL('./assets/leaf.png', import.meta.url),
+  leafTextureURL: new URL('./assets/leaf.png', import.meta.url),
   windStrength: 1.0
 });
 
+// track leaves visible state
+let leavesEnabled = true;
+
+/* ---------------------------
+  Controls
+--------------------------- */
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
@@ -82,9 +86,7 @@ const ease = t => 1 - Math.pow(1 - t, 3);
 
 /* createBranch: unified factory (supports properties for different modes) */
 function createBranch({ name, start, dir, maxLength, generation, style }) {
-  // compute final end
   const finalEnd = start.clone().add(dir.clone().multiplyScalar(maxLength));
-  // control for curves (used by B and D/E)
   const perp = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0,0,1));
   if (perp.length() < 0.1) perp.set(1,0,0);
   perp.normalize();
@@ -97,7 +99,7 @@ function createBranch({ name, start, dir, maxLength, generation, style }) {
     dir: dir.clone().normalize(),
     maxLength,
     generation: generation || 0,
-    progress: 0,        // 0..1
+    progress: 0,
     createdAt: performance.now(),
     hasSplit: false,
     finalEnd,
@@ -114,7 +116,6 @@ function resetTree() {
   particles = [];
   branchGroup.clear();
 
-  // trunk
   branches.push(createBranch({
     name: "Zahra Rajab",
     start: new THREE.Vector3(0,0,0),
@@ -170,20 +171,13 @@ function draw() {
   });
   labelObjs = [];
 
-  // render according to mode
   for (const br of branches) {
-    // compute points for drawing depending on mode:
-    // - A: straight partial line from start -> start + dir*progress*maxLength
-    // - B: curved partial bezier
-    // - C: like A but with particle effects
-    // - D: cinematic (curved with staged delays)
-    // - E: combination (smooth + camera)
     let points = [];
     const prog = br.progress;
     if (currentMode === "A" || currentMode === "C") {
       const end = br.start.clone().add(br.dir.clone().multiplyScalar(br.maxLength * prog));
       points = [br.start, end];
-    } else { // B D E curves
+    } else {
       const segs = Math.max(4, Math.floor(12 * Math.max(0.5, prog)));
       for (let i=0;i<=segs;i++){
         const t = (i/segs) * prog;
@@ -191,13 +185,11 @@ function draw() {
       }
     }
 
-    // line
     const geom = new THREE.BufferGeometry().setFromPoints(points);
     const mat = new THREE.LineBasicMaterial({ color: 0x9b6f3b, linewidth: 2 });
     const line = new THREE.Line(geom, mat);
     branchGroup.add(line);
 
-    // tip and node
     const tip = (points.length ? points[points.length-1] : br.start.clone());
     const scale = Math.min(1, ease(prog));
     const sphGeo = new THREE.SphereGeometry(0.12, 12, 12);
@@ -211,19 +203,14 @@ function draw() {
     const div = document.createElement("div");
     div.className = "label";
     div.textContent = br.name || "Unnamed";
-
     const labelObj = new CSS2DObject(div);
-
-    // attach label to sphere node
-    labelObj.position.set(0, 0.6, 0);  
+    labelObj.position.set(0, 0.6, 0);
     sph.add(labelObj);
-
     labelObjs.push(labelObj);
 
-    // immediately visible (for testing)
+    // immediately visible for now
     div.classList.add("visible");
 
-    // particle spawn for mode C
     if (currentMode === "C" && prog >= 1 && !br._particlesSpawned) {
       br._particlesSpawned = true;
       spawnParticlesAt(tip, br.name);
@@ -265,26 +252,22 @@ function update(time){
   // progress each branch depending on currentMode timing rules
   for (const br of branches) {
     if (br.progress >= 1) continue;
-    // base speed
-    let base = 0.0045 * (currentMode === "D" || currentMode === "E" ? 0.8 : 1.0); // D/E slightly quicker per-branch
+    let base = 0.0045 * (currentMode === "D" || currentMode === "E" ? 0.8 : 1.0);
     if (currentMode === "A") base *= 1.0;
     if (currentMode === "B") base *= 0.85;
     if (currentMode === "C") base *= 1.1;
-    // increment
     br.progress = Math.min(1, br.progress + base * (dt/16));
   }
 
-  // handle finished branches splitting (with scheduling & generation limit)
+  // handle finished branches splitting
   for (const br of branches) {
     if (br.progress >= 1 && !br.hasSplit && br.generation < MAX_GENERATIONS) {
       br.hasSplit = true;
-      // timing variations per mode:
       const delay = (currentMode === "D" || currentMode === "E") ? 350 : 180;
       setTimeout(()=>{
         const kids = spawnChildren(br);
         if (kids.length) {
           branches.push(...kids);
-          // if cinematic, tween camera outward slightly
           if (currentMode === "D" || currentMode === "E") {
             const ext = computeExtents();
             cameraTween = { from: camera.position.clone(), to: new THREE.Vector3(ext.x*1.2, ext.y*0.9+5, ext.z*1.6+6), start: performance.now(), dur: 1000 };
@@ -304,7 +287,6 @@ function update(time){
       particles.splice(i,1);
       continue;
     }
-    // float upward, fade
     p.sprite.position.y += 0.0015 * (dt/16);
     p.sprite.material.opacity = 1 - (age / life);
   }
@@ -316,6 +298,12 @@ function update(time){
     camera.position.lerpVectors(cameraTween.from, cameraTween.to, et);
     controls.update();
     if (t >= 1) cameraTween = null;
+  }
+
+  // update leaves (if present)
+  if (leaves && typeof leaves.update === 'function') {
+    // pass dt (ms) and time (ms)
+    leaves.update(dt, performance.now());
   }
 
   // draw & render
@@ -347,6 +335,26 @@ btns.forEach(b=>{
   });
 });
 document.getElementById("reset").addEventListener("click", ()=> resetTree());
+
+/* Toggle Leaves button (requires an element with id="toggleLeaves") */
+const toggleLeavesBtn = document.getElementById("toggleLeaves");
+if (toggleLeavesBtn) {
+  toggleLeavesBtn.addEventListener("click", () => {
+    leavesEnabled = !leavesEnabled;
+    // createLeaves returns { instancedMesh, update } — handle both possible shapes
+    if (leaves.instancedMesh) {
+      leaves.instancedMesh.visible = leavesEnabled;
+    } else if (leaves.visible !== undefined) {
+      // older versions might return direct mesh/points
+      leaves.visible = leavesEnabled;
+    }
+    toggleLeavesBtn.textContent = leavesEnabled ? "Hide Leaves" : "Show Leaves";
+    toggleLeavesBtn.classList.toggle("active", leavesEnabled);
+  });
+} else {
+  // no button found — create a lightweight fallback toggle in console
+  console.warn('Toggle Leaves button (#toggleLeaves) not found in DOM. Use leavesEnabled variable to control leaves.');
+}
 
 /* keyboard reset camera */
 window.addEventListener("keydown", (e)=>{
