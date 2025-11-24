@@ -18,11 +18,13 @@ const familyMap = {
 };
 
 /* ---------------------------
-  Setup renderer, scene, camera, label renderer
+  Renderer, scene, camera, label renderer
 --------------------------- */
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
 const labelRenderer = new CSS2DRenderer();
@@ -31,348 +33,355 @@ labelRenderer.domElement.id = "labels";
 document.body.appendChild(labelRenderer.domElement);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x000000);
+scene.background = new THREE.Color(0x0b0b0b);
 
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 6, 14);
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+camera.position.set(0, 6, 18);
 
-/* ---------------------------
-  Leaves (instanced shader system)
---------------------------- */
-// createLeaves returns { instancedMesh, update }
-// Use import.meta.url so bundlers resolve the asset path correctly
-const leaves = createLeaves(scene, {
-  count: 1600,
-  areaRadius: 6,
-  leafTextureURL: new URL('./assets/leaf.png', import.meta.url),
-  windStrength: 1.0
-});
-
-// track leaves visible state
-let leavesEnabled = true;
-
-/* ---------------------------
-  Controls
---------------------------- */
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
-controls.dampingFactor = 0.08;
-controls.target.set(0, 2, 0);
+controls.dampingFactor = 0.07;
+controls.target.set(0, 3, 0);
 controls.update();
 
 /* lights */
-scene.add(new THREE.AmbientLight(0xffffff, 0.35));
-const dl = new THREE.DirectionalLight(0xffffff, 0.9);
-dl.position.set(5, 10, 6);
-scene.add(dl);
+scene.add(new THREE.AmbientLight(0xffffff, 0.28));
+const sun = new THREE.DirectionalLight(0xffffff, 1.0);
+sun.position.set(8, 20, 10);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.near = 0.5;
+sun.shadow.camera.far = 100;
+sun.shadow.camera.left = -20;
+sun.shadow.camera.right = 20;
+sun.shadow.camera.top = 20;
+sun.shadow.camera.bottom = -20;
+scene.add(sun);
 
-/* groups */
-const branchGroup = new THREE.Group();
-scene.add(branchGroup);
+/* ground */
+const groundMat = new THREE.MeshStandardMaterial({ color: 0x0f120f, roughness: 1 });
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), groundMat);
+ground.rotation.x = -Math.PI/2;
+ground.position.y = -0.01;
+ground.receiveShadow = true;
+scene.add(ground);
 
-/* constants & state */
-const MAX_GENERATIONS = 2;
-const modes = ["A","B","C","D","E"];
-let currentMode = "A";
+/* ---------------------------
+  Branch system (tapered cylinders)
+--------------------------- */
 
-/* keep arrays & label refs */
-let branches = [];
-let labelObjs = [];
-let particles = []; // for mode C
-let animStart = performance.now();
+// Group holding all branch meshes so we can clear/recreate easily
+const branchRoot = new THREE.Group();
+scene.add(branchRoot);
 
-/* util easing */
-const ease = t => 1 - Math.pow(1 - t, 3);
+// optional bark texture (place a file at src/assets/bark.jpg) - otherwise fallback color
+const textureLoader = new THREE.TextureLoader();
+let barkMaterialPromise = textureLoader.loadAsync ? textureLoader.loadAsync('./src/assets/bark.jpg').then(tex => {
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(1, 1);
+  tex.encoding = THREE.sRGBEncoding;
+  return new THREE.MeshStandardMaterial({ map: tex, roughness: 1, metalness: 0.05 });
+}).catch(err => {
+  console.warn('Bark texture not found or failed to load; using fallback material.', err);
+  return new THREE.MeshStandardMaterial({ color: 0x6b4b35, roughness: 1 });
+}) : Promise.resolve(new THREE.MeshStandardMaterial({ color: 0x6b4b35, roughness: 1 }));
 
-/* createBranch: unified factory (supports properties for different modes) */
-function createBranch({ name, start, dir, maxLength, generation, style }) {
-  const finalEnd = start.clone().add(dir.clone().multiplyScalar(maxLength));
-  const perp = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0,0,1));
-  if (perp.length() < 0.1) perp.set(1,0,0);
-  perp.normalize();
-  const bendFactor = (0.3 + Math.random()*0.4) * (1 - generation*0.2);
-  const control = start.clone().lerp(finalEnd, 0.5).add(perp.multiplyScalar(maxLength * bendFactor));
+// Utility: create a cylinder segment between two points with given radii
+function createSegment(p0, p1, r0, r1, material) {
+  const dir = new THREE.Vector3().subVectors(p1, p0);
+  const len = dir.length();
+  if (len <= 0.0001) return null;
+  // Create a cylinder aligned on Y, then rotate/position it
+  const radialSegments = 8;
+  const geom = new THREE.CylinderGeometry(r1, r0, len, radialSegments, 1, true);
+  geom.applyMatrix4(new THREE.Matrix4().makeTranslation(0, -len/2, 0)); // align base at origin for easier rotation
 
-  return {
-    name: name || "Unnamed",
-    start: start.clone(),
-    dir: dir.clone().normalize(),
-    maxLength,
-    generation: generation || 0,
-    progress: 0,
-    createdAt: performance.now(),
-    hasSplit: false,
-    finalEnd,
-    control
-  };
+  const mesh = new THREE.Mesh(geom, material);
+  // orientation: find quaternion that rotates (0,1,0) to dir.normalize()
+  const up = new THREE.Vector3(0, 1, 0);
+  const q = new THREE.Quaternion().setFromUnitVectors(up, dir.clone().normalize());
+  mesh.quaternion.copy(q);
+
+  // position: place at p0
+  mesh.position.copy(p0);
+
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
 }
 
-/* initialize basic tree (root) */
-function resetTree() {
-  branches = [];
-  labelObjs.forEach(l => { if (l.parent) l.parent.remove(l); if (l.element && l.element.parentNode) l.element.parentNode.removeChild(l.element); });
-  labelObjs = [];
-  particles.forEach(p => { if (p.sprite && p.sprite.parent) p.sprite.parent.remove(p.sprite); });
-  particles = [];
-  branchGroup.clear();
-
-  branches.push(createBranch({
-    name: "Zahra Rajab",
-    start: new THREE.Vector3(0,0,0),
-    dir: new THREE.Vector3(0,1,0),
-    maxLength: 3.0,
-    generation: 0
-  }));
-  animStart = performance.now();
-}
-
-/* spawn children by familyMap: spread across span */
-function spawnChildren(parent) {
-  const childNames = familyMap[parent.name] || [];
-  if (childNames.length === 0) return [];
-  const span = Math.PI/2;
-  const count = childNames.length;
-  const startAngle = -span/2;
-  const kids = [];
-  for (let i=0;i<count;i++){
-    const t = count === 1 ? 0.5 : i/(count-1);
-    const angle = startAngle + t*span;
-    const dir = parent.dir.clone().applyAxisAngle(new THREE.Vector3(0,0,1), angle).normalize();
-    const startPt = parent.finalEnd.clone();
-    const len = Math.max(1.0, parent.maxLength*0.7 - Math.random()*0.3);
-    kids.push(createBranch({ name: childNames[i], start: startPt, dir, maxLength: len, generation: parent.generation + 1 }));
+// Turn a smooth path (array of Vector3) into tapered segments
+function buildTaperedBranch(pathPoints, baseRadius = 0.5, tipRadius = 0.05, material) {
+  const group = new THREE.Group();
+  const n = pathPoints.length;
+  for (let i = 0; i < n - 1; i++) {
+    const p0 = pathPoints[i].clone();
+    const p1 = pathPoints[i + 1].clone();
+    // linear interpolation of radius along the path
+    const t0 = i / (n - 1);
+    const t1 = (i + 1) / (n - 1);
+    const r0 = THREE.MathUtils.lerp(baseRadius, tipRadius, t0);
+    const r1 = THREE.MathUtils.lerp(baseRadius, tipRadius, t1);
+    const seg = createSegment(p0, p1, r0, r1, material);
+    if (seg) group.add(seg);
   }
-  return kids;
+  return group;
 }
 
-/* helpers: quadratic bezier */
-function bezierPoint(p0,c,p2,t){
-  const t1 = 1 - t;
-  return new THREE.Vector3(
-    t1*t1*p0.x + 2*t1*t*c.x + t*t*p2.x,
-    t1*t1*p0.y + 2*t1*t*c.y + t*t*p2.y,
-    t1*t1*p0.z + 2*t1*t*c.z + t*t*p2.z
-  );
+// Create a curved path from start direction and length, with randomness
+function makeCurve(startPos, dir, length, steps = 6, randomness = 0.25) {
+  const points = [];
+  const baseDir = dir.clone().normalize();
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    // progressive forward
+    const forward = baseDir.clone().multiplyScalar(length * (t));
+    // add some perpendicular wobble
+    const wobbleAxis = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.5, Math.random() - 0.5).normalize();
+    const wobbleMag = Math.sin(t * Math.PI) * randomness * (Math.random() - 0.5) * length * 0.4;
+    const wobble = wobbleAxis.multiplyScalar(wobbleMag);
+    const pt = startPos.clone().add(forward).add(wobble);
+    points.push(pt);
+  }
+  return points;
 }
 
-/* draw routine -- will adapt to mode inside */
-function draw() {
-  // clear branchGroup (dispose)
-  while (branchGroup.children.length) {
-    const o = branchGroup.children[0];
-    branchGroup.remove(o);
+/* Recursive generator: creates branch data (not meshes). We'll create meshes after building structure.
+   - origin: Vector3
+   - dir: Vector3 (unit)
+   - length: number
+   - depth: remaining recursion depth
+   - branchingFactor: how many children possible
+*/
+function generateBranchData(origin, dir, length, depth, options = {}) {
+  const { minSteps = 5, maxSteps = 9, baseRadius = 0.35, tipRadius = 0.06 } = options;
+  const steps = THREE.MathUtils.randInt(minSteps, maxSteps);
+  const path = makeCurve(origin, dir, length, steps, 0.28 * (1 + (Math.random() - 0.5) * 0.6));
+  const branch = {
+    path,
+    baseRadius,
+    tipRadius,
+    length,
+    children: [],
+    name: null
+  };
+
+  if (depth > 0) {
+    // generate 1..3 children (biased)
+    const childCount = Math.random() < 0.6 ? 2 : (Math.random() < 0.7 ? 1 : 3);
+    for (let i = 0; i < childCount; i++) {
+      const attachT = 0.45 + Math.random() * 0.45; // attach somewhere along the outer half
+      const attachPoint = path[Math.floor(attachT * (path.length - 1))].clone();
+
+      // child direction: rotate parent dir by some angle
+      const angle = (Math.PI / 6) + Math.random() * (Math.PI / 6); // 30-60 degrees
+      const axis = new THREE.Vector3(0, 0, 1);
+      // random left or right
+      const sign = Math.random() < 0.5 ? 1 : -1;
+      const childDir = dir.clone().applyAxisAngle(axis, sign * angle).normalize();
+      // tilt child slightly upward
+      childDir.y += 0.15 * Math.random();
+      childDir.normalize();
+
+      const childLen = length * (0.45 + Math.random() * 0.35);
+      // radius scales down with depth
+      const childBaseR = branch.baseRadius * (0.55 + Math.random() * 0.25);
+      const childTipR = Math.max(0.02, childBaseR * 0.15);
+
+      const child = generateBranchData(attachPoint, childDir, childLen, depth - 1, {
+        minSteps: Math.max(3, minSteps - 1),
+        maxSteps: Math.max(5, maxSteps - 2),
+        baseRadius: childBaseR,
+        tipRadius: childTipR
+      });
+      branch.children.push(child);
+    }
+  }
+
+  return branch;
+}
+
+// Convert branch data tree into meshes and add to branchRoot using provided material
+function buildBranchMeshes(branchData, material) {
+  const group = new THREE.Group();
+
+  // build this branch geometry
+  const branchMesh = buildTaperedBranch(branchData.path, branchData.baseRadius, branchData.tipRadius, material);
+  group.add(branchMesh);
+
+  // recursively build children and attach to group root
+  for (const child of branchData.children) {
+    const childGroup = buildBranchMeshes(child, material);
+    group.add(childGroup);
+  }
+
+  return group;
+}
+
+/* Assign names (your family) onto branch tips by mapping the recursion order to the family tree.
+   We'll do a simple pre-order traversal and attach names to the tip spheres later (in drawLabels()).
+*/
+function collectTips(branchData, tips = []) {
+  // tip = last point in path
+  tips.push({ point: branchData.path[branchData.path.length - 1].clone(), node: branchData });
+  for (const c of branchData.children) collectTips(c, tips);
+  return tips;
+}
+
+/* Build a full tree for the family data:
+   - We'll convert familyMap into a small procedural tree where the trunk corresponds to root name
+*/
+async function createProceduralTree(rootName = "Zahra Rajab", maxDepth = 3) {
+  // clear previous
+  while (branchRoot.children.length) {
+    const o = branchRoot.children[0];
+    branchRoot.remove(o);
     if (o.geometry) { try{o.geometry.dispose();}catch(e){} }
     if (o.material) { try{ Array.isArray(o.material)?o.material.forEach(m=>m.dispose()):o.material.dispose(); }catch(e){} }
   }
-  // remove old labels
-  labelObjs.forEach(lo => {
-    if (lo.element && lo.element.parentNode) lo.element.parentNode.removeChild(lo.element);
-    if (lo.parent) lo.parent.remove(lo);
+
+  const material = await barkMaterialPromise;
+
+  // trunk
+  const trunkLen = 3.8 + Math.random() * 1.2;
+  const trunk = generateBranchData(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 1, 0), trunkLen, maxDepth, {
+    minSteps: 6, maxSteps: 9, baseRadius: 0.6, tipRadius: 0.12
   });
-  labelObjs = [];
 
-  for (const br of branches) {
-    let points = [];
-    const prog = br.progress;
-    if (currentMode === "A" || currentMode === "C") {
-      const end = br.start.clone().add(br.dir.clone().multiplyScalar(br.maxLength * prog));
-      points = [br.start, end];
-    } else {
-      const segs = Math.max(4, Math.floor(12 * Math.max(0.5, prog)));
-      for (let i=0;i<=segs;i++){
-        const t = (i/segs) * prog;
-        points.push(bezierPoint(br.start, br.control, br.finalEnd, t));
-      }
-    }
+  // build meshes and add to scene
+  const trunkGroup = buildBranchMeshes(trunk, material);
+  branchRoot.add(trunkGroup);
 
-    const geom = new THREE.BufferGeometry().setFromPoints(points);
-    const mat = new THREE.LineBasicMaterial({ color: 0x9b6f3b, linewidth: 2 });
-    const line = new THREE.Line(geom, mat);
-    branchGroup.add(line);
+  // collect tips and map names (simple traversal order)
+  const tips = collectTips(trunk);
+  // simple assignment: map familyMap root + children in breadth-first order
+  const nameQueue = [rootName].concat(familyMap[rootName] || []);
+  // then grandchildren
+  for (const c of familyMap[rootName] || []) {
+    (familyMap[c] || []).forEach(n => nameQueue.push(n));
+  }
 
-    const tip = (points.length ? points[points.length-1] : br.start.clone());
-    const scale = Math.min(1, ease(prog));
-    const sphGeo = new THREE.SphereGeometry(0.12, 12, 12);
-    const sphMat = new THREE.MeshStandardMaterial({ color: 0xff7b7b, roughness:0.6, metalness:0.12 });
-    const sph = new THREE.Mesh(sphGeo, sphMat);
-    sph.position.copy(tip);
-    sph.scale.setScalar(Math.max(0.001, scale));
-    branchGroup.add(sph);
-
-    // label
+  // attach simple label objects at tips matching as many names as we have
+  // We'll create tiny spheres for nodes to help place labels
+  const nodeSphereMat = new THREE.MeshStandardMaterial({ color: 0xff8b6b, roughness: 0.6 });
+  const nodeGeo = new THREE.SphereGeometry(0.12, 10, 10);
+  const labelNodes = [];
+  for (let i = 0; i < tips.length && i < nameQueue.length; i++) {
+    const tip = tips[i];
+    // small sphere
+    const ns = new THREE.Mesh(nodeGeo, nodeSphereMat);
+    ns.position.copy(tip.point);
+    ns.castShadow = true;
+    branchRoot.add(ns);
+    // label (CSS2D)
     const div = document.createElement("div");
     div.className = "label";
-    div.textContent = br.name || "Unnamed";
-    const labelObj = new CSS2DObject(div);
-    labelObj.position.set(0, 0.6, 0);
-    sph.add(labelObj);
-    labelObjs.push(labelObj);
-
-    // immediately visible for now
+    div.textContent = nameQueue[i];
+    const label = new CSS2DObject(div);
+    // offset label a little above node
+    label.position.set(0, 0.4, 0);
+    ns.add(label);
+    // make it visible immediately
     div.classList.add("visible");
-
-    if (currentMode === "C" && prog >= 1 && !br._particlesSpawned) {
-      br._particlesSpawned = true;
-      spawnParticlesAt(tip, br.name);
-    }
+    labelNodes.push({ mesh: ns, label, name: nameQueue[i] });
   }
 
-  // add particles (sprites)
-  for (const p of particles) {
-    if (p.sprite && !p.sprite.parent) branchGroup.add(p.sprite);
-  }
+  // return useful refs for later toggling etc.
+  return { trunkData: trunk, tipNodes: labelNodes, branchGroup: trunkGroup };
 }
 
-/* spawn simple particles (small sprites) at tip for mode C */
-function spawnParticlesAt(pos, name){
-  const texCanvas = document.createElement("canvas");
-  texCanvas.width = texCanvas.height = 64;
-  const ctx = texCanvas.getContext("2d");
-  ctx.fillStyle = "rgba(255,255,255,0.9)";
-  ctx.beginPath(); ctx.arc(32,32,10,0,Math.PI*2); ctx.fill();
-  const tex = new THREE.CanvasTexture(texCanvas);
+/* ---------------------------
+  UI + controls
+--------------------------- */
+let builtTree = null;
+let leavesObj = null;
+let leavesEnabled = false;
 
-  for (let i=0;i<12;i++){
-    const sprMat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.95 });
-    const spr = new THREE.Sprite(sprMat);
-    spr.scale.setScalar(0.25 + Math.random()*0.4);
-    spr.position.copy(pos).add(new THREE.Vector3((Math.random()-0.5)*0.6, (Math.random()-0.2)*0.6, (Math.random()-0.5)*0.6));
-    particles.push({ sprite: spr, born: performance.now(), life: 900 + Math.random()*600 });
-  }
+async function regen() {
+  builtTree = await createProceduralTree("Zahra Rajab", 2); // depth 2 or 3
 }
+document.getElementById('regen').addEventListener('click', () => {
+  regen();
+});
 
-/* update loop: progress branches and handle splits, camera cinematic for D/E */
-let last = performance.now();
-let cameraTween = null;
-
-function update(time){
-  const dt = Math.min(60, time - last);
-  last = time;
-
-  // progress each branch depending on currentMode timing rules
-  for (const br of branches) {
-    if (br.progress >= 1) continue;
-    let base = 0.0045 * (currentMode === "D" || currentMode === "E" ? 0.8 : 1.0);
-    if (currentMode === "A") base *= 1.0;
-    if (currentMode === "B") base *= 0.85;
-    if (currentMode === "C") base *= 1.1;
-    br.progress = Math.min(1, br.progress + base * (dt/16));
-  }
-
-  // handle finished branches splitting
-  for (const br of branches) {
-    if (br.progress >= 1 && !br.hasSplit && br.generation < MAX_GENERATIONS) {
-      br.hasSplit = true;
-      const delay = (currentMode === "D" || currentMode === "E") ? 350 : 180;
-      setTimeout(()=>{
-        const kids = spawnChildren(br);
-        if (kids.length) {
-          branches.push(...kids);
-          if (currentMode === "D" || currentMode === "E") {
-            const ext = computeExtents();
-            cameraTween = { from: camera.position.clone(), to: new THREE.Vector3(ext.x*1.2, ext.y*0.9+5, ext.z*1.6+6), start: performance.now(), dur: 1000 };
-          }
+// toggle leaves button (if you have createLeaves, we will show/hide)
+document.getElementById('toggle-leaves').addEventListener('click', async () => {
+  // If you imported createLeaves earlier, integrate here. Otherwise this toggles a placeholder group.
+  if (!leavesObj) {
+    // Try to create leaves if function exists
+    try {
+      if (typeof createLeaves === 'function') {
+        leavesObj = createLeaves(scene, { count: 1400, areaRadius: 6, leafTextureURL: new URL('./assets/leaf.png', import.meta.url).href, windStrength: 1.0 });
+      } else {
+        // simple placeholder: a faint particle cloud at top
+        const g = new THREE.Group();
+        for (let i = 0; i < 160; i++) {
+          const spr = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), new THREE.MeshStandardMaterial({ color: 0x3bb55b, roughness: 0.9 }));
+          spr.position.set((Math.random()-0.5)*3, 2 + Math.random()*2.5, (Math.random()-0.5)*3);
+          spr.castShadow = true;
+          g.add(spr);
         }
-      }, delay + Math.random()*80);
+        leavesObj = { instancedMesh: g, update: () => {} };
+        scene.add(g);
+      }
+      leavesEnabled = true;
+      document.getElementById('toggle-leaves').textContent = 'Hide Leaves';
+    } catch (e) {
+      console.error('Failed to create leaves:', e);
     }
+  } else {
+    // toggle visibility
+    leavesEnabled = !leavesEnabled;
+    if (leavesObj.instancedMesh) leavesObj.instancedMesh.visible = leavesEnabled;
+    document.getElementById('toggle-leaves').textContent = leavesEnabled ? 'Hide Leaves' : 'Show Leaves';
   }
+});
 
-  // animate particles
-  for (let i = particles.length -1; i>=0; i--) {
-    const p = particles[i];
-    const age = time - p.born;
-    const life = p.life;
-    if (age > life) {
-      if (p.sprite.parent) p.sprite.parent.remove(p.sprite);
-      particles.splice(i,1);
-      continue;
-    }
-    p.sprite.position.y += 0.0015 * (dt/16);
-    p.sprite.material.opacity = 1 - (age / life);
-  }
+// reset camera
+document.getElementById('reset-camera').addEventListener('click', () => {
+  camera.position.set(0, 6, 18);
+  controls.target.set(0, 3, 0);
+  controls.update();
+});
 
-  // camera tween
-  if (cameraTween) {
-    const t = Math.min(1, (time - cameraTween.start) / cameraTween.dur);
-    const et = ease(t);
-    camera.position.lerpVectors(cameraTween.from, cameraTween.to, et);
+// key R to reset camera
+window.addEventListener('keydown', (e) => {
+  if (e.key.toLowerCase() === 'r') {
+    camera.position.set(0, 6, 18);
+    controls.target.set(0, 3, 0);
     controls.update();
-    if (t >= 1) cameraTween = null;
+  }
+});
+
+/* ---------------------------
+  Animation loop
+--------------------------- */
+let last = performance.now();
+async function animate(time) {
+  const t = performance.now();
+  const dt = t - last;
+  last = t;
+
+  // optionally update leaves
+  if (leavesObj && typeof leavesObj.update === 'function') {
+    leavesObj.update(dt, t);
   }
 
-  // update leaves (if present)
-  if (leaves && typeof leaves.update === 'function') {
-    // pass dt (ms) and time (ms)
-    leaves.update(dt, performance.now());
-  }
-
-  // draw & render
-  draw();
+  controls.update();
   renderer.render(scene, camera);
   labelRenderer.render(scene, camera);
 
-  requestAnimationFrame(update);
+  requestAnimationFrame(animate);
 }
 
-/* compute extents for camera framing */
-function computeExtents(){
-  const pts = [];
-  for (const b of branches) { pts.push(b.start.clone()); pts.push(b.finalEnd.clone()); }
-  const box = new THREE.Box3().setFromPoints(pts);
-  const size = new THREE.Vector3(); box.getSize(size);
-  const center = new THREE.Vector3(); box.getCenter(center);
-  return { x: Math.max(6, size.x), y: Math.max(4, size.y), z: Math.max(6, size.z), center };
-}
+// initial generation
+regen();
+requestAnimationFrame(animate);
 
-/* UI: mode toggle and reset */
-const btns = document.querySelectorAll(".ui button[data-mode]");
-btns.forEach(b=>{
-  b.addEventListener("click", ()=>{
-    btns.forEach(x=>x.classList.remove("active"));
-    b.classList.add("active");
-    currentMode = b.dataset.mode;
-    resetTree();
-  });
-});
-document.getElementById("reset").addEventListener("click", ()=> resetTree());
-
-/* Toggle Leaves button (requires an element with id="toggleLeaves") */
-const toggleLeavesBtn = document.getElementById("toggleLeaves");
-if (toggleLeavesBtn) {
-  toggleLeavesBtn.addEventListener("click", () => {
-    leavesEnabled = !leavesEnabled;
-    // createLeaves returns { instancedMesh, update } — handle both possible shapes
-    if (leaves.instancedMesh) {
-      leaves.instancedMesh.visible = leavesEnabled;
-    } else if (leaves.visible !== undefined) {
-      // older versions might return direct mesh/points
-      leaves.visible = leavesEnabled;
-    }
-    toggleLeavesBtn.textContent = leavesEnabled ? "Hide Leaves" : "Show Leaves";
-    toggleLeavesBtn.classList.toggle("active", leavesEnabled);
-  });
-} else {
-  // no button found — create a lightweight fallback toggle in console
-  console.warn('Toggle Leaves button (#toggleLeaves) not found in DOM. Use leavesEnabled variable to control leaves.');
-}
-
-/* keyboard reset camera */
-window.addEventListener("keydown", (e)=>{
-  if (e.key === "r") {
-    camera.position.set(0,6,14);
-    controls.target.set(0,2,0);
-    controls.update();
-  }
-});
-
-/* resize */
-window.addEventListener("resize", ()=>{
-  camera.aspect = window.innerWidth/window.innerHeight;
+/* responsive */
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
   labelRenderer.setSize(window.innerWidth, window.innerHeight);
 });
-
-/* start */
-resetTree();
-requestAnimationFrame(update);

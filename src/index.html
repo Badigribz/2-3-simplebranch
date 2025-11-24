@@ -2,14 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Family Tree — Multi-Style Animations</title>
+    <title>Family Tree — Realistic Branches (Stage 1)</title>
     <style>
-      body { 
-        margin: 0;
-        overflow: hidden; 
-        font-family: system-ui, Arial, Helvetica, sans-serif; 
-        background: #000; 
-      }
+      body { margin: 0; overflow: hidden; font-family: system-ui, Arial, Helvetica, sans-serif; background: #000; }
       .ui {
         position: absolute;
         left: 12px;
@@ -41,38 +36,21 @@
         box-shadow: 0 6px 18px rgba(0,0,0,0.45);
       }
       .label.visible { opacity: 1; transform: translateY(-60%); }
-      .hint {
-        position: absolute; left: 12px; bottom: 12px; color: #ccc; font-size: 12px;
-      }
-      #labels {
-        position: absolute;
-        top: 0;
-        left: 0;
-        z-index: 5;        /* ensures labels are above WebGL but below UI */
-        pointer-events: none;
-      }
-        canvas {
-        position: absolute;
-        top: 0;
-        left: 0;
-        z-index: 1;     /* WebGL layer */
-      }
-
+      .hint { position: absolute; left: 12px; bottom: 12px; color: #ccc; font-size: 12px; }
+      #labels { position: absolute; top: 0; left: 0; z-index: 5; pointer-events: none; }
+      canvas { position: absolute; top: 0; left: 0; z-index: 1; }
     </style>
   </head>
   <body>
     <div class="ui" id="controls">
-      <button data-mode="A" class="active">A - Smooth</button>
-      <button data-mode="B">B - Organic Curved</button>
-      <button data-mode="C">C - Particles</button>
-      <button data-mode="D">D - Cinematic</button>
-      <button data-mode="E">E - Mix A+D</button>
-      <button id="toggleLeaves">Toggle Leaves</button>
-
-      <button id="reset">Reset</button>
+      <button id="regen">Regenerate Tree</button>
+      <button id="toggle-leaves">Toggle Leaves</button>
+      <button id="reset-camera">Reset Camera</button>
     </div>
-    <div class="hint">Press R to reset camera — toggle styles to compare.</div>
+
     <div id="labels"></div>
-     <script src="./index.js" type="module"></script>
+    <div class="hint">Press R to reset camera. Regenerate to see different forms.</div>
+
+    <script type="module" src="./index.js"></script>
   </body>
 </html>
