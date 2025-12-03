@@ -305,7 +305,7 @@ for (let i = 0; i < tips.length && i < nameQueue.length; i++) {
     const label = new CSS2DObject(div);
 
     // small offset so text floats cleanly above node
-    label.position.set(0, 0.35, 0);
+    label.position.set(0, 0.3, 0);
     ns.add(label);
 
     div.classList.add("visible"); // show immediately
