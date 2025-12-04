@@ -164,19 +164,30 @@ function makeCurve(startPos, dir, length, steps = 6, randomness = 0.25, rng = Ma
 /* Recursive generator, now using rng for determinism */
 function generateFamilyTree(name, position, direction, depth, material) {
   const children = familyMap[name] || [];
-
   const group = new THREE.Group();
 
-  // main branch
-  const length = 2.8;
-  const path = makeCurve(position, direction, length, 7, 0.15, () => 0.5);
+  // ✅ Generation-based scaling
+  const length = 2.8 - depth * 0.25;
+  const baseRadius = Math.max(0.12, 0.4 - depth * 0.06);
+  const tipRadius = 0.05;
 
-  const branchMesh = buildTaperedBranch(path, 0.25, 0.05, material);
+  // ✅ Controlled organic curve
+  const path = makeCurve(
+    position,
+    direction,
+    length,
+    7,
+    0.12, // LOW randomness = readable but natural
+    () => 0.5
+  );
+
+  const branchMesh = buildTaperedBranch(path, baseRadius, tipRadius, material);
   group.add(branchMesh);
 
+  // ✅ Tip of this person
   const tip = path[path.length - 1].clone();
 
-  // ✅ Visible node sphere
+  // ✅ Visible node (person)
   const nodeGeo = new THREE.SphereGeometry(0.12, 12, 12);
   const nodeMat = new THREE.MeshStandardMaterial({ color: 0xff8b6b });
   const node = new THREE.Mesh(nodeGeo, nodeMat);
@@ -184,7 +195,7 @@ function generateFamilyTree(name, position, direction, depth, material) {
   node.castShadow = true;
   group.add(node);
 
-  // ✅ Label
+  // ✅ Name label
   const div = document.createElement("div");
   div.className = "label visible";
   div.textContent = name;
@@ -192,17 +203,22 @@ function generateFamilyTree(name, position, direction, depth, material) {
   label.position.set(0, 0.35, 0);
   node.add(label);
 
-  // ✅ Evenly fan out children
+  // ✅ Even fan-out of children (this is the KEY FIX)
   if (children.length > 0) {
-    const spread = Math.PI / 3;
+    const spread = Math.PI / 2.6; // width of fan
     const start = -spread / 2;
 
     children.forEach((child, i) => {
-      const angle = start + (i / Math.max(1, children.length - 1)) * spread;
+      const ratio = children.length === 1 ? 0.5 : i / (children.length - 1);
+      const angle = start + ratio * spread;
 
       const childDir = direction.clone()
         .applyAxisAngle(new THREE.Vector3(0, 0, 1), angle)
         .normalize();
+
+      // ✅ slight upward bias = no drooping branches
+      childDir.y += 0.18;
+      childDir.normalize();
 
       const childBranch = generateFamilyTree(
         child,
@@ -416,8 +432,8 @@ function animate(time) {
 
   const familyTree = generateFamilyTree(
     "Zahra Rajab",
-    new THREE.Vector3(0, 0, 0),
-    new THREE.Vector3(0, 1, 0),
+    new THREE.Vector3(0, 0, 0),   // root position
+    new THREE.Vector3(0, 1, 0),   // upward direction
     0,
     material
   );
