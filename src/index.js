@@ -162,50 +162,63 @@ function makeCurve(startPos, dir, length, steps = 6, randomness = 0.25, rng = Ma
 }
 
 /* Recursive generator, now using rng for determinism */
-function generateBranchData(origin, dir, length, depth, rng = Math.random, options = {}) {
-  const { minSteps = 5, maxSteps = 9, baseRadius = 0.35, tipRadius = 0.06 } = options;
-  const steps = Math.floor(THREE.MathUtils.lerp(minSteps, maxSteps, rng())); // deterministic integer in range
-  const path = makeCurve(origin, dir, length, steps, 0.28 * (1 + (rng() - 0.5) * 0.6), rng);
-  const branch = {
-    path,
-    baseRadius,
-    tipRadius,
-    length,
-    children: [],
-    name: null
-  };
+function generateFamilyTree(name, position, direction, depth, material) {
+  const children = familyMap[name] || [];
 
-  if (depth > 0) {
-    // deterministic child count: bias to 2
-    const rChild = rng();
-    const childCount = rChild < 0.55 ? 2 : (rChild < 0.80 ? 1 : 3);
-    for (let i = 0; i < childCount; i++) {
-      const attachT = 0.45 + rng() * 0.45;
-      const attachPoint = path[Math.floor(attachT * (path.length - 1))].clone();
+  const group = new THREE.Group();
 
-      const angle = (Math.PI / 6) + rng() * (Math.PI / 6);
-      const axis = new THREE.Vector3(0, 0, 1);
-      const sign = rng() < 0.5 ? 1 : -1;
-      const childDir = dir.clone().applyAxisAngle(axis, sign * angle).normalize();
-      childDir.y += 0.15 * rng();
-      childDir.normalize();
+  // main branch
+  const length = 2.8;
+  const path = makeCurve(position, direction, length, 7, 0.15, () => 0.5);
 
-      const childLen = length * (0.45 + rng() * 0.35);
-      const childBaseR = branch.baseRadius * (0.55 + rng() * 0.25);
-      const childTipR = Math.max(0.02, childBaseR * 0.15);
+  const branchMesh = buildTaperedBranch(path, 0.25, 0.05, material);
+  group.add(branchMesh);
 
-      const child = generateBranchData(attachPoint, childDir, childLen, depth - 1, rng, {
-        minSteps: Math.max(3, minSteps - 1),
-        maxSteps: Math.max(5, maxSteps - 2),
-        baseRadius: childBaseR,
-        tipRadius: childTipR
-      });
-      branch.children.push(child);
-    }
+  const tip = path[path.length - 1].clone();
+
+  // ✅ Visible node sphere
+  const nodeGeo = new THREE.SphereGeometry(0.12, 12, 12);
+  const nodeMat = new THREE.MeshStandardMaterial({ color: 0xff8b6b });
+  const node = new THREE.Mesh(nodeGeo, nodeMat);
+  node.position.copy(tip);
+  node.castShadow = true;
+  group.add(node);
+
+  // ✅ Label
+  const div = document.createElement("div");
+  div.className = "label visible";
+  div.textContent = name;
+  const label = new CSS2DObject(div);
+  label.position.set(0, 0.35, 0);
+  node.add(label);
+
+  // ✅ Evenly fan out children
+  if (children.length > 0) {
+    const spread = Math.PI / 3;
+    const start = -spread / 2;
+
+    children.forEach((child, i) => {
+      const angle = start + (i / Math.max(1, children.length - 1)) * spread;
+
+      const childDir = direction.clone()
+        .applyAxisAngle(new THREE.Vector3(0, 0, 1), angle)
+        .normalize();
+
+      const childBranch = generateFamilyTree(
+        child,
+        tip,
+        childDir,
+        depth + 1,
+        material
+      );
+
+      group.add(childBranch);
+    });
   }
 
-  return branch;
+  return group;
 }
+
 
 /* Convert branch data tree into meshes and add to branchRoot using provided material */
 function buildBranchMeshes(branchData, material) {
@@ -399,7 +412,17 @@ function animate(time) {
 
 // --- Generate the tree once at load ---
 (async () => {
-  builtTree = await createProceduralTree("Zahra Rajab", 4); // depth 4 ensures all names fit
+  const material = await barkMaterialPromise;
+
+  const familyTree = generateFamilyTree(
+    "Zahra Rajab",
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(0, 1, 0),
+    0,
+    material
+  );
+
+  branchRoot.add(familyTree);
   requestAnimationFrame(animate);
 })();
 
