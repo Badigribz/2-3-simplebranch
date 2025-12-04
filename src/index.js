@@ -9,7 +9,7 @@ import { createLeaves } from "./scene/leaves.js";
 --------------------------- */
 const familyMap = {
   "Zahra Rajab": ["Yunus Habib", "Mustafa Habib", "Elly Sirunya"],
-  "Yunus Habib": ["Nuriat Habib", "Zahra Habib"],
+  "Yunus Habib": ["Nuryat Habib", "Zahra Habib"],
   "Mustafa Habib": ["Humail Mustafa"],
   "Elly Sirunya": [],
   "Nuriat Habib": [],
