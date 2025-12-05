@@ -33,7 +33,9 @@ labelRenderer.domElement.id = "labels";
 document.body.appendChild(labelRenderer.domElement);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0b0b0b);
+scene.background = new THREE.Color(0x050510);
+scene.fog = new THREE.FogExp2(0x090b1a, 0.035); // Spirit mist
+
 
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
 camera.position.set(0, 6, 18);
@@ -188,8 +190,13 @@ function generateFamilyTree(name, position, direction, depth, material) {
   const tip = path[path.length - 1].clone();
 
   // ✅ Visible node (person)
-  const nodeGeo = new THREE.SphereGeometry(0.12, 12, 12);
-  const nodeMat = new THREE.MeshStandardMaterial({ color: 0xff8b6b });
+  const nodeGeo = new THREE.SphereGeometry(0.14, 16, 16);
+  const nodeMat = new THREE.MeshStandardMaterial({ 
+  color: 0x88ccff,
+  emissive: 0x4499ff,
+  emissiveIntensity: 1.4,
+  roughness: 0.2
+  });
   const node = new THREE.Mesh(nodeGeo, nodeMat);
   node.position.copy(tip);
   node.castShadow = true;
@@ -197,7 +204,7 @@ function generateFamilyTree(name, position, direction, depth, material) {
 
   // ✅ Name label
   const div = document.createElement("div");
-  div.className = "label visible";
+  div.className = "label visible spirit-label";
   div.textContent = name;
   const label = new CSS2DObject(div);
   label.position.set(0, 0.35, 0);
