@@ -47,7 +47,7 @@ controls.target.set(0, 3, 0);
 controls.update();
 
 /* lights */
-scene.add(new THREE.AmbientLight(0xffffff, 0.28));
+scene.add(new THREE.AmbientLight(0xffffff, 0.12));
 const sun = new THREE.DirectionalLight(0xffffff, 1.0);
 sun.position.set(8, 20, 10);
 sun.castShadow = true;
@@ -119,6 +119,8 @@ const barkMaterialPromise = Promise.resolve(
     roughnessMap: barkRoughTex,
     roughness: 1,
     metalness: 0,
+    normalScale: new THREE.Vector2(1.6, 1.6), // ✅ bark depth
+    flatShading: false
   })
 );
 
