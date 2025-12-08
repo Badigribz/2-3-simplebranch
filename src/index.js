@@ -77,24 +77,68 @@ const branchRoot = new THREE.Group();
 scene.add(branchRoot);
 
 // optional bark texture (place a file at src/assets/bark.jpg) - otherwise fallback color
+// -----------------------------
+// ✅ PARCEL-SAFE FULL PBR BARK
+// -----------------------------
 const textureLoader = new THREE.TextureLoader();
-let barkMaterialPromise = textureLoader.loadAsync ? textureLoader.loadAsync('./src/assets/bark.jpg').then(tex => {
+
+// ✅ Parcel-safe URLs
+const barkColorURL    = new URL('./assets/bark/Bark001_4K-PNG_Color.png', import.meta.url).href;
+const barkNormalURL   = new URL('./assets/bark/Bark001_4K-PNG_NormalGL.png', import.meta.url).href;
+const barkRoughURL    = new URL('./assets/bark/Bark001_4K-PNG_Roughness.png', import.meta.url).href;
+
+// ✅ Load textures
+const barkColorTex = textureLoader.load(barkColorURL, tex => {
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(1, 1);
+  tex.repeat.set(1.5, 6);
   tex.encoding = THREE.sRGBEncoding;
-  return new THREE.MeshStandardMaterial({ map: tex, roughness: 1, metalness: 0.05 });
-}).catch(err => {
-  console.warn('Bark texture not found or failed to load; using fallback material.', err);
-  return new THREE.MeshStandardMaterial({ color: 0x6b4b35, roughness: 1 });
-}) : Promise.resolve(new THREE.MeshStandardMaterial({ color: 0x6b4b35, roughness: 1 }));
+  tex.anisotropy = 16;
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  console.log("✅ Bark Color Loaded");
+});
+
+const barkNormalTex = textureLoader.load(barkNormalURL, tex => {
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(1.5, 6);
+  tex.anisotropy = 16;
+  console.log("✅ Bark Normal Loaded");
+});
+
+const barkRoughTex = textureLoader.load(barkRoughURL, tex => {
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(1.5, 6);
+  tex.anisotropy = 16;
+  console.log("✅ Bark Roughness Loaded");
+});
+
+// ✅ Real PBR Material
+const barkMaterialPromise = Promise.resolve(
+  new THREE.MeshStandardMaterial({
+    map: barkColorTex,
+    normalMap: barkNormalTex,
+    roughnessMap: barkRoughTex,
+    roughness: 1,
+    metalness: 0,
+  })
+);
+
 
 // Utility: create a cylinder segment between two points with given radii
 function createSegment(p0, p1, r0, r1, material) {
   const dir = new THREE.Vector3().subVectors(p1, p0);
   const len = dir.length();
   if (len <= 0.0001) return null;
-  const radialSegments = 8;
-  const geom = new THREE.CylinderGeometry(r1, r0, len, radialSegments, 1, true);
+  const radialSegments = 32;
+  const heightSegments = Math.max(4, Math.floor(len * 4));
+  const geom = new THREE.CylinderGeometry(
+    r1,
+    r0,
+    len,
+    radialSegments,
+    heightSegments,
+    true
+  );
+
   geom.applyMatrix4(new THREE.Matrix4().makeTranslation(0, -len/2, 0));
   const mesh = new THREE.Mesh(geom, material);
   const up = new THREE.Vector3(0, 1, 0);
