@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { CSS2DRenderer, CSS2DObject } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import { createLeaves } from "./scene/leaves.js";
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 /* ---------------------------
   Family Data (your names)
@@ -36,6 +37,20 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x050510);
 scene.fog = new THREE.FogExp2(0x090b1a, 0.035); // Spirit mist
 
+const myBarkURL = new URL('./assets/mybark.glb', import.meta.url).href;
+
+const loader = new GLTFLoader();
+loader.load(myBarkURL,
+  gltf => {
+    console.log("✅ GLB REALLY LOADED");
+    const trunk = gltf.scene;
+    trunk.scale.set(1.5, 1.5, 1.5);
+    trunk.position.set(0, 0, 0);
+    scene.add(trunk);
+  },
+  undefined,
+  err => console.error("❌ GLTF ERROR:", err)
+);
 
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
 camera.position.set(0, 6, 18);
