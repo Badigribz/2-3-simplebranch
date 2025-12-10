@@ -65,7 +65,7 @@ loader.load(myBarkURL,
   err => console.error("❌ GLTF ERROR:", err)
 );
 
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 2000);
 camera.position.set(0, 6, 18);
 
 const controls = new OrbitControls(camera, renderer.domElement);
