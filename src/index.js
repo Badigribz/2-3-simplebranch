@@ -145,9 +145,11 @@ const barkMaterialPromise = Promise.resolve(
     map: barkColorTex,
     normalMap: barkNormalTex,
     roughnessMap: barkRoughTex,
-    roughness: 1,
-    metalness: 0,
-    normalScale: new THREE.Vector2(1.6, 1.6), // ✅ bark depth
+
+    roughness: 0.85,
+    metalness: 0.0,
+
+    normalScale: new THREE.Vector2(2.2, 2.2), // ✅ MUCH DEEPER BARK
     flatShading: false
   })
 );
@@ -168,6 +170,25 @@ function createSegment(p0, p1, r0, r1, material) {
     heightSegments,
     true
   );
+
+  // ✅ ADD ORGANIC SURFACE NOISE
+  const pos = geom.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+
+    const n = (Math.sin(y * 12 + x * 6) + Math.cos(z * 10)) * 0.015;
+
+    pos.setXYZ(
+      i,
+      x + x * n,
+      y,
+      z + z * n
+    );
+  }
+  geom.computeVertexNormals();
+
 
   geom.applyMatrix4(new THREE.Matrix4().makeTranslation(0, -len/2 - 0.05, 0));
   const mesh = new THREE.Mesh(geom, material);
@@ -243,8 +264,12 @@ function generateFamilyTree(name, position, direction, depth, material) {
   const group = new THREE.Group();
 
   // ✅ Generation-based scaling
-  const length = 2.8 - depth * 0.25;
-  const baseRadius = Math.max(0.12, 0.4 - depth * 0.06);
+  const length = 2.6 - depth * 0.35 + Math.random() * 0.4;
+  const baseRadius = Math.max(
+    0.1,
+    0.45 - depth * 0.09 + (Math.random() - 0.5) * 0.05
+  );
+
   const tipRadius = 0.05;
 
   // ✅ Controlled organic curve
