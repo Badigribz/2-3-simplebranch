@@ -60,6 +60,18 @@ loader.load(myBarkURL,
     window.trunkAnchor = trunkAnchor;
 
     scene.add(trunk);
+
+    // ✅ EXTRACT REAL BLENDER BARK MATERIAL FOR BRANCHES
+    let extractedMat = null;
+    trunk.traverse(obj => {
+      if (obj.isMesh && obj.material) extractedMat = obj.material;
+    });
+
+    if (extractedMat) {
+      window.BRANCH_MATERIAL = extractedMat;
+      console.log("✅ Using Blender bark for branches");
+    }
+
   },
   undefined,
   err => console.error("❌ GLTF ERROR:", err)
@@ -160,14 +172,16 @@ function createSegment(p0, p1, r0, r1, material) {
   const dir = new THREE.Vector3().subVectors(p1, p0);
   const len = dir.length();
   if (len <= 0.0001) return null;
-  const radialSegments = 32;
-  const heightSegments = Math.max(4, Math.floor(len * 4));
+  //const radialSegments = 32;
+  //const heightSegments = Math.max(4, Math.floor(len * 4));
   const geom = new THREE.CylinderGeometry(
     r1,
     r0,
     len,
-    radialSegments,
-    heightSegments,
+    // radialSegments,
+    // heightSegments,
+    12,
+    6,
     true
   );
 
@@ -393,7 +407,7 @@ async function createProceduralTree(rootName = "Zahra Rajab", maxDepth = 3) {
   const seed = hashStringToInt(rootName + "|familyTreeV1");
   const rng = seededRng(seed);
 
-  const material = await barkMaterialPromise;
+  const material = window.BRANCH_MATERIAL || await barkMaterialPromise;
 
   // trunk (deterministic length based on rng)
   const trunkLen = 3.8 + rng() * 1.2;
