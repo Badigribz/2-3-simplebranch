@@ -46,6 +46,19 @@ loader.load(myBarkURL,
     const trunk = gltf.scene;
     trunk.scale.set(1.5, 1.5, 1.5);
     trunk.position.set(0, 0, 0);
+
+    // ✅ Calculate REAL top of trunk
+    const box = new THREE.Box3().setFromObject(trunk);
+    const topY = box.max.y;
+
+    // ✅ Create invisible anchor at top
+    const trunkAnchor = new THREE.Object3D();
+    trunkAnchor.position.set(0, topY, 0);
+    trunk.add(trunkAnchor);
+
+    // ✅ SAVE GLOBALLY SO WE CAN GROW FROM IT
+    window.trunkAnchor = trunkAnchor;
+
     scene.add(trunk);
   },
   undefined,
@@ -156,7 +169,7 @@ function createSegment(p0, p1, r0, r1, material) {
     true
   );
 
-  geom.applyMatrix4(new THREE.Matrix4().makeTranslation(0, -len/2, 0));
+  geom.applyMatrix4(new THREE.Matrix4().makeTranslation(0, -len/2 - 0.05, 0));
   const mesh = new THREE.Mesh(geom, material);
   const up = new THREE.Vector3(0, 1, 0);
   const q = new THREE.Quaternion().setFromUnitVectors(up, dir.clone().normalize());
@@ -498,15 +511,35 @@ function animate(time) {
 (async () => {
   const material = await barkMaterialPromise;
 
+  // const familyTree = generateFamilyTree(
+  //   "Zahra Rajab",
+  //   new THREE.Vector3(0, 0, 0),   // root position
+  //   new THREE.Vector3(0, 1, 0),   // upward direction
+  //   0,
+  //   material
+  // );
+
+  // branchRoot.add(familyTree);
+
+  const growthStart = window.trunkAnchor
+  ? window.trunkAnchor.getWorldPosition(new THREE.Vector3())
+  : new THREE.Vector3(0, 0, 0);
+
   const familyTree = generateFamilyTree(
-    "Zahra Rajab",
-    new THREE.Vector3(0, 0, 0),   // root position
-    new THREE.Vector3(0, 1, 0),   // upward direction
-    0,
-    material
+  "Zahra Rajab",
+  growthStart,              // ✅ START AT REAL TRUNK TOP
+  new THREE.Vector3(0, 1, 0),
+  0,
+  material
   );
 
+// ✅ Attach branches directly onto trunk
+  if (window.trunkAnchor) {
+  window.trunkAnchor.add(familyTree);
+  } else {
   branchRoot.add(familyTree);
+  }
+
   requestAnimationFrame(animate);
 })();
 
