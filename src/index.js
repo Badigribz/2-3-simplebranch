@@ -180,8 +180,8 @@ function createSegment(p0, p1, r0, r1, material) {
     len,
     // radialSegments,
     // heightSegments,
-    12,
-    6,
+    24,
+    8,
     true
   );
 
