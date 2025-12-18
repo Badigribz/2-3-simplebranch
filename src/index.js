@@ -36,7 +36,7 @@ scene.add(dirLight);
 const loader = new GLTFLoader();
 
 const trunkURL = new URL('./assets/mybark.glb', import.meta.url).href;
-const branchURL = new URL('./assets/branch_v2.glb', import.meta.url).href;
+const branchURL = new URL('./assets/branch.glb', import.meta.url).href;
 
 let TRUNK = null;
 let TRUNK_ANCHOR = null;
