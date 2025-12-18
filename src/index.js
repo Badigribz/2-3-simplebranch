@@ -35,7 +35,6 @@ document.body.appendChild(labelRenderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x050510);
-scene.fog = new THREE.FogExp2(0x090b1a, 0.035); // Spirit mist
 
 const myBarkURL = new URL('./assets/mybark.glb', import.meta.url).href;
 
