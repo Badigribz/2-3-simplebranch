@@ -2,7 +2,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { CSS2DRenderer, CSS2DObject } from "three/examples/jsm/renderers/CSS2DRenderer.js";
-import { createLeaves } from "./scene/leaves.js";
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 /* ---------------------------
@@ -433,10 +432,10 @@ async function createProceduralTree(rootName = "Zahra Rajab", maxDepth = 3) {
   // Before we used tips directly; to make parent-child visually clear we also compute a stable horizontal position
   // for the label and keep the sphere at its real tip to show relation; label offsets help readability.
   const nodeSphereMat = new THREE.MeshStandardMaterial({ color: 0xff8b6b, roughness: 0.6 });
-const nodeGeo = new THREE.SphereGeometry(0.12, 10, 10);
-const labelNodes = [];
+  const nodeGeo = new THREE.SphereGeometry(0.12, 10, 10);
+  const labelNodes = [];
 
-for (let i = 0; i < tips.length && i < nameQueue.length; i++) {
+  for (let i = 0; i < tips.length && i < nameQueue.length; i++) {
     const tip = tips[i];
 
     // ✔ small visible node at tree tip
@@ -472,42 +471,6 @@ return { trunkData: trunk, tipNodes: labelNodes, branchGroup: trunkGroup };
   UI + controls
 --------------------------- */
 let builtTree = null;
-let leavesObj = null;
-let leavesEnabled = false;
-
-// toggle leaves button
-document.getElementById('toggle-leaves').addEventListener('click', async () => {
-  if (!leavesObj) {
-    try {
-      if (typeof createLeaves === 'function') {
-        leavesObj = createLeaves(scene, { 
-          count: 1400, 
-          areaRadius: 6, 
-          leafTextureURL: new URL('./assets/leaf.png', import.meta.url).href, 
-          windStrength: 1.0 
-        });
-      } else {
-        const g = new THREE.Group();
-        for (let i = 0; i < 160; i++) {
-          const spr = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), new THREE.MeshStandardMaterial({ color: 0x3bb55b, roughness: 0.9 }));
-          spr.position.set((Math.random()-0.5)*3, 2 + Math.random()*2.5, (Math.random()-0.5)*3);
-          spr.castShadow = true;
-          g.add(spr);
-        }
-        leavesObj = { instancedMesh: g, update: () => {} };
-        scene.add(g);
-      }
-      leavesEnabled = true;
-      document.getElementById('toggle-leaves').textContent = 'Hide Leaves';
-    } catch (e) {
-      console.error('Failed to create leaves:', e);
-    }
-  } else {
-    leavesEnabled = !leavesEnabled;
-    if (leavesObj.instancedMesh) leavesObj.instancedMesh.visible = leavesEnabled;
-    document.getElementById('toggle-leaves').textContent = leavesEnabled ? 'Hide Leaves' : 'Show Leaves';
-  }
-});
 
 // reset camera
 document.getElementById('reset-camera').addEventListener('click', () => {
@@ -533,10 +496,6 @@ function animate(time) {
   const t = performance.now();
   const dt = t - last;
   last = t;
-
-  if (leavesObj && typeof leavesObj.update === 'function') {
-    leavesObj.update(dt, t);
-  }
 
   controls.update();
   renderer.render(scene, camera);
