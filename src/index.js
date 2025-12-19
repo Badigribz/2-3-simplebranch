@@ -30,32 +30,48 @@ dirLight.position.set(5, 10, 5);
 scene.add(dirLight);
 
 // ─────────────────────────────────────────────
-// FAMILY NODE FACTORY (STAGE 4)
+// INTERACTION (STAGE 5)
+// ─────────────────────────────────────────────
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+const INTERACTIVE_NODES = [];
+let SELECTED_NODE = null;
+
+// ─────────────────────────────────────────────
+// FAMILY NODE FACTORY (STAGE 4 → 5)
 // ─────────────────────────────────────────────
 function createFamilyNode({ name }) {
   const group = new THREE.Group();
 
+  const orbMaterial = new THREE.MeshStandardMaterial({
+    color: 0x88ccff,
+    emissive: 0x3366ff,
+    emissiveIntensity: 0.8,
+    roughness: 0.25
+  });
+
   const orb = new THREE.Mesh(
     new THREE.SphereGeometry(0.18, 20, 20),
-    new THREE.MeshStandardMaterial({
-      color: 0x88ccff,
-      emissive: 0x3366ff,
-      emissiveIntensity: 0.9,
-      roughness: 0.25
-    })
+    orbMaterial
   );
 
   group.add(orb);
 
-  // Anchor for children
+  // Anchor for children (future generations)
   const anchor = new THREE.Object3D();
   anchor.position.set(0, 0.25, 0);
   group.add(anchor);
 
+  // Metadata
   group.userData = {
+    type: "family-node",
     name,
-    anchor
+    anchor,
+    orb
   };
+
+  INTERACTIVE_NODES.push(orb); // 👈 clickable surface
 
   return group;
 }
@@ -139,8 +155,7 @@ function tryAttachBranches() {
 
     TRUNK_ANCHOR.add(branch);
 
-    // Child node at tip
-    branch.userData.tipAnchor = addBranchTipAnchor(branch);
+    addBranchTipAnchor(branch);
   });
 }
 
@@ -154,7 +169,7 @@ function addBranchTipAnchor(branch) {
     if (child.isMesh) mesh = child;
   });
 
-  if (!mesh) return null;
+  if (!mesh) return;
 
   if (!mesh.geometry.boundingBox) {
     mesh.geometry.computeBoundingBox();
@@ -177,12 +192,45 @@ function addBranchTipAnchor(branch) {
   const childNode = createFamilyNode({ name: "Child" });
   tipAnchor.add(childNode);
 
-  // Store lineage
-  tipAnchor.userData.person = childNode;
+  mesh.add(tipAnchor);
+}
 
-  mesh.add(tipAnchor); // IMPORTANT: parent to mesh
+// ─────────────────────────────────────────────
+// CLICK HANDLING (STAGE 5)
+// ─────────────────────────────────────────────
+window.addEventListener("pointerdown", (event) => {
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
-  return tipAnchor;
+  raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObjects(INTERACTIVE_NODES, false);
+
+  if (hits.length > 0) {
+    selectNode(hits[0].object);
+  } else {
+    clearSelection();
+  }
+});
+
+function selectNode(orb) {
+  if (SELECTED_NODE) {
+    SELECTED_NODE.material.emissiveIntensity = 0.8;
+    SELECTED_NODE.scale.set(1, 1, 1);
+  }
+
+  SELECTED_NODE = orb;
+  orb.material.emissiveIntensity = 1.8;
+  orb.scale.set(1.3, 1.3, 1.3);
+
+  console.log("🧬 Selected:", orb.parent.userData.name);
+}
+
+function clearSelection() {
+  if (!SELECTED_NODE) return;
+
+  SELECTED_NODE.material.emissiveIntensity = 0.8;
+  SELECTED_NODE.scale.set(1, 1, 1);
+  SELECTED_NODE = null;
 }
 
 // ─────────────────────────────────────────────
