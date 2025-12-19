@@ -8,7 +8,12 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x111111);
 
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(
+  75,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  1000
+);
 camera.position.set(5, 5, 10);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -23,6 +28,37 @@ scene.add(new THREE.AmbientLight(0xffffff, 0.6));
 const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
 dirLight.position.set(5, 10, 5);
 scene.add(dirLight);
+
+// ─────────────────────────────────────────────
+// FAMILY NODE FACTORY (STAGE 4)
+// ─────────────────────────────────────────────
+function createFamilyNode({ name }) {
+  const group = new THREE.Group();
+
+  const orb = new THREE.Mesh(
+    new THREE.SphereGeometry(0.18, 20, 20),
+    new THREE.MeshStandardMaterial({
+      color: 0x88ccff,
+      emissive: 0x3366ff,
+      emissiveIntensity: 0.9,
+      roughness: 0.25
+    })
+  );
+
+  group.add(orb);
+
+  // Anchor for children
+  const anchor = new THREE.Object3D();
+  anchor.position.set(0, 0.25, 0);
+  group.add(anchor);
+
+  group.userData = {
+    name,
+    anchor
+  };
+
+  return group;
+}
 
 // ─────────────────────────────────────────────
 // GLOBAL STATE
@@ -59,17 +95,15 @@ loader.load(trunkURL, (gltf) => {
 
   const trunkAnchor = new THREE.Object3D();
   trunkAnchor.position.copy(topLocal);
-
-  // 🔴 debug
-  trunkAnchor.add(new THREE.Mesh(
-    new THREE.SphereGeometry(0.15, 16, 16),
-    new THREE.MeshBasicMaterial({ color: 0xff0000 })
-  ));
-
   trunk.add(trunkAnchor);
+
+  // 🌳 ROOT PERSON (MOTHER)
+  const rootPerson = createFamilyNode({ name: "Mother" });
+  trunkAnchor.add(rootPerson);
 
   TRUNK = trunk;
   TRUNK_ANCHOR = trunkAnchor;
+  window.ROOT_PERSON = rootPerson;
 
   const center = new THREE.Vector3();
   bbox.getCenter(center);
@@ -105,13 +139,13 @@ function tryAttachBranches() {
 
     TRUNK_ANCHOR.add(branch);
 
-    // ✅ Correct tip anchor
+    // Child node at tip
     branch.userData.tipAnchor = addBranchTipAnchor(branch);
   });
 }
 
 // ─────────────────────────────────────────────
-// ✅ STAGE 3 – CORRECT BRANCH TIP ANCHOR
+// STAGE 3 + 4 – BRANCH TIP + CHILD NODE
 // ─────────────────────────────────────────────
 function addBranchTipAnchor(branch) {
   let mesh = null;
@@ -122,38 +156,34 @@ function addBranchTipAnchor(branch) {
 
   if (!mesh) return null;
 
-  // ✅ Ensure geometry bbox exists
   if (!mesh.geometry.boundingBox) {
     mesh.geometry.computeBoundingBox();
   }
 
   const bbox = mesh.geometry.boundingBox;
 
-  // ✅ Tip in LOCAL GEOMETRY space
   const tipLocal = new THREE.Vector3(
     (bbox.min.x + bbox.max.x) / 2,
     bbox.max.y,
     (bbox.min.z + bbox.max.z) / 2
   );
 
-  // ⚠️ IMPORTANT: account for mesh scale
   tipLocal.multiply(mesh.scale);
 
   const tipAnchor = new THREE.Object3D();
   tipAnchor.position.copy(tipLocal);
 
-  // 🔴 debug orb
-  const debugSphere = new THREE.Mesh(
-    new THREE.SphereGeometry(0.08, 12, 12),
-    new THREE.MeshBasicMaterial({ color: 0xff0000 })
-  );
-  tipAnchor.add(debugSphere);
+  // 👶 CHILD PERSON NODE
+  const childNode = createFamilyNode({ name: "Child" });
+  tipAnchor.add(childNode);
 
-  mesh.add(tipAnchor); // 👈 parent to MESH, not branch
+  // Store lineage
+  tipAnchor.userData.person = childNode;
+
+  mesh.add(tipAnchor); // IMPORTANT: parent to mesh
 
   return tipAnchor;
 }
-
 
 // ─────────────────────────────────────────────
 // RENDER LOOP
