@@ -14,7 +14,7 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   1000
 );
-camera.position.set(5, 5, 10);
+camera.position.set(5, 5, 5);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -30,6 +30,38 @@ dirLight.position.set(5, 10, 5);
 scene.add(dirLight);
 
 // ─────────────────────────────────────────────
+// LABEL SPRITE (STAGE 6)
+// ─────────────────────────────────────────────
+function createLabelSprite(text) {
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+
+  canvas.width = 256;
+  canvas.height = 64;
+
+  ctx.fillStyle = "rgba(0,0,0,0.6)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.font = "28px Arial";
+  ctx.fillStyle = "white";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+
+  const texture = new THREE.CanvasTexture(canvas);
+
+  const material = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true
+  });
+
+  const sprite = new THREE.Sprite(material);
+  sprite.scale.set(1.4, 0.35, 1);
+
+  return sprite;
+}
+
+// ─────────────────────────────────────────────
 // INTERACTION (STAGE 5)
 // ─────────────────────────────────────────────
 const raycaster = new THREE.Raycaster();
@@ -39,7 +71,7 @@ const INTERACTIVE_NODES = [];
 let SELECTED_NODE = null;
 
 // ─────────────────────────────────────────────
-// FAMILY NODE FACTORY (STAGE 4 → 5)
+// FAMILY NODE FACTORY (STAGE 4 → 7)
 // ─────────────────────────────────────────────
 function createFamilyNode({ name }) {
   const group = new THREE.Group();
@@ -56,22 +88,25 @@ function createFamilyNode({ name }) {
     orbMaterial
   );
 
-  group.add(orb);
+  const label = createLabelSprite(name);
+  label.position.set(0, 0.45, 0);
 
-  // Anchor for children (future generations)
+  group.add(orb);
+  group.add(label);
+
   const anchor = new THREE.Object3D();
   anchor.position.set(0, 0.25, 0);
   group.add(anchor);
 
-  // Metadata
   group.userData = {
     type: "family-node",
     name,
-    anchor,
-    orb
+    orb,
+    label,
+    anchor
   };
 
-  INTERACTIVE_NODES.push(orb); // 👈 clickable surface
+  INTERACTIVE_NODES.push(orb);
 
   return group;
 }
@@ -84,7 +119,6 @@ const loader = new GLTFLoader();
 const trunkURL = new URL('./assets/mybark.glb', import.meta.url).href;
 const branchURL = new URL('./assets/branch.glb', import.meta.url).href;
 
-let TRUNK = null;
 let TRUNK_ANCHOR = null;
 let BRANCH_MODEL = null;
 let branchesAttached = false;
@@ -100,7 +134,6 @@ loader.load(trunkURL, (gltf) => {
   trunk.updateWorldMatrix(true, true);
 
   const bbox = new THREE.Box3().setFromObject(trunk);
-
   const topLocal = new THREE.Vector3(
     (bbox.min.x + bbox.max.x) / 2,
     bbox.max.y,
@@ -109,17 +142,13 @@ loader.load(trunkURL, (gltf) => {
 
   trunk.worldToLocal(topLocal);
 
-  const trunkAnchor = new THREE.Object3D();
-  trunkAnchor.position.copy(topLocal);
-  trunk.add(trunkAnchor);
+  TRUNK_ANCHOR = new THREE.Object3D();
+  TRUNK_ANCHOR.position.copy(topLocal);
+  trunk.add(TRUNK_ANCHOR);
 
-  // 🌳 ROOT PERSON (MOTHER)
+  // 🌳 ROOT PERSON
   const rootPerson = createFamilyNode({ name: "Mother" });
-  trunkAnchor.add(rootPerson);
-
-  TRUNK = trunk;
-  TRUNK_ANCHOR = trunkAnchor;
-  window.ROOT_PERSON = rootPerson;
+  TRUNK_ANCHOR.add(rootPerson);
 
   const center = new THREE.Vector3();
   bbox.getCenter(center);
@@ -138,7 +167,7 @@ loader.load(branchURL, (gltf) => {
 });
 
 // ─────────────────────────────────────────────
-// ATTACH BRANCHES
+// ATTACH INITIAL BRANCHES
 // ─────────────────────────────────────────────
 function tryAttachBranches() {
   if (!TRUNK_ANCHOR || !BRANCH_MODEL || branchesAttached) return;
@@ -154,19 +183,18 @@ function tryAttachBranches() {
     branch.rotation.y = i * 0.8;
 
     TRUNK_ANCHOR.add(branch);
-
-    addBranchTipAnchor(branch);
+    addBranchTipAnchor(branch, `Child ${i + 1}`);
   });
 }
 
 // ─────────────────────────────────────────────
-// STAGE 3 + 4 – BRANCH TIP + CHILD NODE
+// BRANCH TIP + CHILD NODE
 // ─────────────────────────────────────────────
-function addBranchTipAnchor(branch) {
+function addBranchTipAnchor(branch, name = "Child") {
   let mesh = null;
 
-  branch.traverse(child => {
-    if (child.isMesh) mesh = child;
+  branch.traverse(obj => {
+    if (obj.isMesh) mesh = obj;
   });
 
   if (!mesh) return;
@@ -176,7 +204,6 @@ function addBranchTipAnchor(branch) {
   }
 
   const bbox = mesh.geometry.boundingBox;
-
   const tipLocal = new THREE.Vector3(
     (bbox.min.x + bbox.max.x) / 2,
     bbox.max.y,
@@ -188,15 +215,32 @@ function addBranchTipAnchor(branch) {
   const tipAnchor = new THREE.Object3D();
   tipAnchor.position.copy(tipLocal);
 
-  // 👶 CHILD PERSON NODE
-  const childNode = createFamilyNode({ name: "Child" });
+  const childNode = createFamilyNode({ name });
   tipAnchor.add(childNode);
 
   mesh.add(tipAnchor);
 }
 
 // ─────────────────────────────────────────────
-// CLICK HANDLING (STAGE 5)
+// ADD CHILD TO SELECTED NODE
+// ─────────────────────────────────────────────
+function addChildToSelected(name = "New Child") {
+  if (!SELECTED_NODE || !BRANCH_MODEL) return;
+
+  const anchor = SELECTED_NODE.userData.anchor;
+  if (!anchor) return;
+
+  const branch = BRANCH_MODEL.clone(true);
+  branch.scale.setScalar(0.8);
+  branch.rotation.z = (Math.random() - 0.5);
+  branch.rotation.y = Math.random() * Math.PI * 2;
+
+  anchor.add(branch);
+  addBranchTipAnchor(branch, name);
+}
+
+// ─────────────────────────────────────────────
+// CLICK HANDLING
 // ─────────────────────────────────────────────
 window.addEventListener("pointerdown", (event) => {
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -212,23 +256,29 @@ window.addEventListener("pointerdown", (event) => {
   }
 });
 
+window.addEventListener("keydown", (e) => {
+  if (e.key === "n") {
+    addChildToSelected("Child " + Math.floor(Math.random() * 100));
+  }
+});
+
 function selectNode(orb) {
   if (SELECTED_NODE) {
-    SELECTED_NODE.material.emissiveIntensity = 0.8;
+    SELECTED_NODE.userData.orb.material.emissiveIntensity = 0.8;
     SELECTED_NODE.scale.set(1, 1, 1);
   }
 
-  SELECTED_NODE = orb;
-  orb.material.emissiveIntensity = 1.8;
-  orb.scale.set(1.3, 1.3, 1.3);
+  SELECTED_NODE = orb.parent;
+  SELECTED_NODE.userData.orb.material.emissiveIntensity = 1.8;
+  SELECTED_NODE.scale.set(1.3, 1.3, 1.3);
 
-  console.log("🧬 Selected:", orb.parent.userData.name);
+  console.log("🧬 Selected:", SELECTED_NODE.userData.name);
 }
 
 function clearSelection() {
   if (!SELECTED_NODE) return;
 
-  SELECTED_NODE.material.emissiveIntensity = 0.8;
+  SELECTED_NODE.userData.orb.material.emissiveIntensity = 0.8;
   SELECTED_NODE.scale.set(1, 1, 1);
   SELECTED_NODE = null;
 }
