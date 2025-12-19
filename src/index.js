@@ -8,19 +8,13 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x111111);
 
-const camera = new THREE.PerspectiveCamera(
-  75,
-  window.innerWidth / window.innerHeight,
-  0.1,
-  1000
-);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.set(5, 5, 10);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// Controls
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
@@ -31,7 +25,7 @@ dirLight.position.set(5, 10, 5);
 scene.add(dirLight);
 
 // ─────────────────────────────────────────────
-// GLOBAL STATE (IMPORTANT)
+// GLOBAL STATE
 // ─────────────────────────────────────────────
 const loader = new GLTFLoader();
 
@@ -47,74 +41,57 @@ let branchesAttached = false;
 // LOAD TRUNK
 // ─────────────────────────────────────────────
 loader.load(trunkURL, (gltf) => {
-  console.log("🌳 Trunk loaded");
-
   const trunk = gltf.scene;
   trunk.scale.set(1.5, 1.5, 1.5);
-  trunk.position.set(0, 0, 0);
   scene.add(trunk);
 
-  // Ensure transforms are updated
   trunk.updateWorldMatrix(true, true);
 
-  // Compute bounding box
   const bbox = new THREE.Box3().setFromObject(trunk);
 
-  // World-space top center
-  const topWorld = new THREE.Vector3(
+  const topLocal = new THREE.Vector3(
     (bbox.min.x + bbox.max.x) / 2,
     bbox.max.y,
     (bbox.min.z + bbox.max.z) / 2
   );
 
-  // Convert WORLD → LOCAL
-  trunk.worldToLocal(topWorld);
+  trunk.worldToLocal(topLocal);
 
-  // Create anchor
   const trunkAnchor = new THREE.Object3D();
-  trunkAnchor.position.copy(topWorld);
+  trunkAnchor.position.copy(topLocal);
 
-  // Debug anchor sphere (RED)
-  const anchorSphere = new THREE.Mesh(
+  // 🔴 debug
+  trunkAnchor.add(new THREE.Mesh(
     new THREE.SphereGeometry(0.15, 16, 16),
     new THREE.MeshBasicMaterial({ color: 0xff0000 })
-  );
-  trunkAnchor.add(anchorSphere);
+  ));
 
   trunk.add(trunkAnchor);
 
-  // Save globally
   TRUNK = trunk;
   TRUNK_ANCHOR = trunkAnchor;
 
-  // Controls focus
   const center = new THREE.Vector3();
   bbox.getCenter(center);
   controls.target.copy(center);
   controls.update();
 
-  console.log("✅ Trunk anchor correctly placed");
-
   tryAttachBranches();
 });
 
 // ─────────────────────────────────────────────
-// LOAD BRANCH TEMPLATE (ONCE)
+// LOAD BRANCH TEMPLATE
 // ─────────────────────────────────────────────
 loader.load(branchURL, (gltf) => {
   BRANCH_MODEL = gltf.scene;
-  console.log("🌿 Branch template ready");
-
   tryAttachBranches();
 });
 
 // ─────────────────────────────────────────────
-// ATTACH BRANCHES (SAFE + DETERMINISTIC)
+// ATTACH BRANCHES
 // ─────────────────────────────────────────────
 function tryAttachBranches() {
-  if (!TRUNK_ANCHOR || !BRANCH_MODEL) return;
-  if (branchesAttached) return;
-
+  if (!TRUNK_ANCHOR || !BRANCH_MODEL || branchesAttached) return;
   branchesAttached = true;
 
   const angles = [-0.5, 0, 0.5];
@@ -125,13 +102,58 @@ function tryAttachBranches() {
     branch.scale.setScalar(0.9 + i * 0.1);
     branch.rotation.z = angle;
     branch.rotation.y = i * 0.8;
-    branch.position.set(0, 0, 0);
 
     TRUNK_ANCHOR.add(branch);
+
+    // ✅ Correct tip anchor
+    branch.userData.tipAnchor = addBranchTipAnchor(branch);
+  });
+}
+
+// ─────────────────────────────────────────────
+// ✅ STAGE 3 – CORRECT BRANCH TIP ANCHOR
+// ─────────────────────────────────────────────
+function addBranchTipAnchor(branch) {
+  let mesh = null;
+
+  branch.traverse(child => {
+    if (child.isMesh) mesh = child;
   });
 
-  console.log("🌳 Branches attached cleanly");
+  if (!mesh) return null;
+
+  // ✅ Ensure geometry bbox exists
+  if (!mesh.geometry.boundingBox) {
+    mesh.geometry.computeBoundingBox();
+  }
+
+  const bbox = mesh.geometry.boundingBox;
+
+  // ✅ Tip in LOCAL GEOMETRY space
+  const tipLocal = new THREE.Vector3(
+    (bbox.min.x + bbox.max.x) / 2,
+    bbox.max.y,
+    (bbox.min.z + bbox.max.z) / 2
+  );
+
+  // ⚠️ IMPORTANT: account for mesh scale
+  tipLocal.multiply(mesh.scale);
+
+  const tipAnchor = new THREE.Object3D();
+  tipAnchor.position.copy(tipLocal);
+
+  // 🔴 debug orb
+  const debugSphere = new THREE.Mesh(
+    new THREE.SphereGeometry(0.08, 12, 12),
+    new THREE.MeshBasicMaterial({ color: 0xff0000 })
+  );
+  tipAnchor.add(debugSphere);
+
+  mesh.add(tipAnchor); // 👈 parent to MESH, not branch
+
+  return tipAnchor;
 }
+
 
 // ─────────────────────────────────────────────
 // RENDER LOOP
@@ -141,5 +163,4 @@ function animate() {
   controls.update();
   renderer.render(scene, camera);
 }
-
 animate();
