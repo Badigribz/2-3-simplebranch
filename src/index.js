@@ -57,7 +57,7 @@ function createLabelSprite(text) {
 }
 
 // ─────────────────────────────────────────────
-// FAMILY NODE FACTORY (STAGE 6 CORE)
+// FAMILY NODE FACTORY
 // ─────────────────────────────────────────────
 function createFamilyNode({ name }) {
   const group = new THREE.Group();
@@ -73,12 +73,10 @@ function createFamilyNode({ name }) {
   );
   group.add(orb);
 
-  // Anchor for children
   const anchor = new THREE.Object3D();
   anchor.position.set(0, 0.25, 0);
   group.add(anchor);
 
-  // Label
   const label = createLabelSprite(name);
   label.position.set(0, 0.45, 0);
   group.add(label);
@@ -128,11 +126,11 @@ loader.load(trunkURL, (gltf) => {
   TRUNK_ANCHOR.position.copy(topLocal);
   trunk.add(TRUNK_ANCHOR);
 
-  // ROOT PERSON
   const root = createFamilyNode({ name: "Mother" });
   TRUNK_ANCHOR.add(root);
 
   SELECTED_NODE = root;
+  updateUI();
 
   const center = new THREE.Vector3();
   bbox.getCenter(center);
@@ -148,7 +146,7 @@ loader.load(branchURL, (gltf) => {
 });
 
 // ─────────────────────────────────────────────
-// ADD CHILD (STAGE 7)
+// ADD CHILD
 // ─────────────────────────────────────────────
 function addChildToSelected(name = "Child") {
   if (!SELECTED_NODE || !BRANCH_MODEL) return;
@@ -162,7 +160,6 @@ function addChildToSelected(name = "Child") {
   branch.rotation.y = Math.random() * Math.PI * 2;
 
   parentAnchor.add(branch);
-
   addBranchTipAnchor(branch, name);
 }
 
@@ -203,7 +200,7 @@ function addBranchTipAnchor(branch, childName) {
 }
 
 // ─────────────────────────────────────────────
-// SELECTION (CLICK)
+// SELECTION
 // ─────────────────────────────────────────────
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
@@ -222,9 +219,46 @@ window.addEventListener("click", (e) => {
     }
     if (obj?.userData?.anchor) {
       SELECTED_NODE = obj;
+      updateUI();
       break;
     }
   }
+});
+
+// ─────────────────────────────────────────────
+// UI — RENAME (STAGE 8)
+// ─────────────────────────────────────────────
+const nameInput = document.getElementById("nameInput");
+const renameBtn = document.getElementById("renameBtn");
+
+function updateUI() {
+  if (!SELECTED_NODE) return;
+  nameInput.value = SELECTED_NODE.userData.name;
+}
+
+function renameSelected() {
+  if (!SELECTED_NODE) return;
+
+  const newName = nameInput.value.trim();
+  if (!newName) return;
+
+  const data = SELECTED_NODE.userData;
+  data.name = newName;
+
+  SELECTED_NODE.remove(data.label);
+  data.label.material.map.dispose();
+  data.label.material.dispose();
+
+  const newLabel = createLabelSprite(newName);
+  newLabel.position.set(0, 0.45, 0);
+  SELECTED_NODE.add(newLabel);
+
+  data.label = newLabel;
+}
+
+renameBtn.addEventListener("click", renameSelected);
+nameInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") renameSelected();
 });
 
 // ─────────────────────────────────────────────
