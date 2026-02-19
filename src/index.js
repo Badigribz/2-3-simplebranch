@@ -33,6 +33,7 @@ document.body.appendChild(renderer.domElement);
 // Loads your moonrise sky and uses it to light
 // every surface from every angle simultaneously
 // ─────────────────────────────────────────────
+//
 const hdrURL = new URL('./assets/qwantani_moonrise_puresky_1k.hdr', import.meta.url).href;
 
 new RGBELoader()
