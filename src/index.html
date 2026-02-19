@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Family Tree</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #000;
+      font-family: 'Trebuchet MS', 'Lucida Grande', system-ui, sans-serif;
+    }
+
+    /* ── Top bar ──────────────────────────────────── */
+    #topbar {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 48px;
+      background: linear-gradient(
+        to bottom,
+        rgba(4, 12, 35, 0.92),
+        rgba(4, 12, 35, 0.0)
+      );
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      z-index: 20;
+      pointer-events: none;
+    }
+
+    #topbar h1 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(160, 210, 255, 0.75);
+      text-shadow: 0 0 12px rgba(80, 160, 255, 0.6);
+    }
+
+    #topbar span {
+      margin-left: 10px;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      color: rgba(100, 150, 220, 0.45);
+      font-weight: 400;
+    }
+
+    /* ── Info panel ───────────────────────────────── */
+    #info-panel {
+      position: absolute;
+      right: 20px;
+      top: 50%;
+      transform: translateY(-50%) translateX(calc(100% + 30px));
+      width: 220px;
+      background: linear-gradient(
+        160deg,
+        rgba(8, 20, 60, 0.92) 0%,
+        rgba(4, 10, 35, 0.96) 100%
+      );
+      border: 1px solid rgba(60, 130, 255, 0.35);
+      border-radius: 16px;
+      padding: 22px 18px 18px;
+      z-index: 20;
+      backdrop-filter: blur(12px);
+      box-shadow:
+        0 0 0 1px rgba(40, 90, 200, 0.12),
+        0 0 30px rgba(30, 70, 200, 0.25),
+        inset 0 1px 0 rgba(120, 180, 255, 0.1);
+
+      transition:
+        transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 0.35s ease;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #info-panel.visible {
+      transform: translateY(-50%) translateX(0);
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    /*Accent top bar*/
+    #info-panel::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 20%; right: 20%;
+      height: 2px;
+      background: linear-gradient(
+        to right,
+        transparent,
+        rgba(100, 180, 255, 0.7),
+        transparent
+      );
+      border-radius: 2px;
+    }
+
+    #panel-label {
+      font-size: 9px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(100, 160, 255, 0.55);
+      margin-bottom: 8px;
+    }
+
+    #panel-name {
+      font-size: 20px;
+      font-weight: 700;
+      color: #ddeeff;
+      letter-spacing: 0.04em;
+      text-shadow: 0 0 14px rgba(80, 150, 255, 0.5);
+      margin-bottom: 4px;
+      word-break: break-word;
+    }
+
+    #panel-id {
+      font-size: 10px;
+      color: rgba(100, 140, 200, 0.45);
+      letter-spacing: 0.1em;
+      margin-bottom: 20px;
+    }
+
+    /* Divider */
+    .panel-divider {
+      height: 1px;
+      background: linear-gradient(
+        to right,
+        transparent,
+        rgba(60, 120, 255, 0.3),
+        transparent
+      );
+      margin-bottom: 16px;
+    }
+
+    .panel-btn {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      width: 100%;
+      background: rgba(20, 50, 120, 0.3);
+      border: 1px solid rgba(60, 120, 220, 0.22);
+      color: rgba(180, 215, 255, 0.85);
+      font-size: 12px;
+      font-family: inherit;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      padding: 9px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-bottom: 8px;
+      transition:
+        background 0.18s ease,
+        border-color 0.18s ease,
+        box-shadow 0.18s ease;
+    }
+
+    .panel-btn:hover {
+      background: rgba(30, 70, 160, 0.55);
+      border-color: rgba(80, 160, 255, 0.5);
+      box-shadow: 0 0 12px rgba(40, 100, 255, 0.2);
+      color: #e8f4ff;
+    }
+
+    .panel-btn:last-child { margin-bottom: 0; }
+
+    .panel-btn.danger {
+      border-color: rgba(200, 50, 50, 0.25);
+      color: rgba(255, 160, 150, 0.8);
+    }
+
+    .panel-btn.danger:hover {
+      background: rgba(100, 20, 20, 0.45);
+      border-color: rgba(255, 80, 80, 0.5);
+      box-shadow: 0 0 12px rgba(200, 40, 40, 0.25);
+      color: #ffcccc;
+    }
+
+    .btn-icon {
+      font-size: 14px;
+      line-height: 1;
+      opacity: 0.8;
+    }
+
+    /* ── Controls hint ────────────────────────────── */
+    #hint {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      color: rgba(80, 130, 200, 0.35);
+      text-transform: uppercase;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Top bar -->
+  <div id="topbar">
+    <h1>Family Tree</h1>
+    <span>/ lineage</span>
+  </div>
+
+  <!-- Info panel (slides in on selection) -->
+  <div id="info-panel">
+    <div id="panel-label">Selected</div>
+    <div id="panel-name">—</div>
+    <div id="panel-id"></div>
+    <div class="panel-divider"></div>
+    <button class="panel-btn" id="btn-rename">
+      <span class="btn-icon">✏️</span> Rename
+    </button>
+    <button class="panel-btn" id="btn-add-child">
+      <span class="btn-icon">🌿</span> Add child
+    </button>
+    <button class="panel-btn danger" id="btn-delete">
+      <span class="btn-icon">✕</span> Delete
+    </button>
+    <button class="panel-btn" id="btn-focus" style="margin-top:14px; border-color:rgba(100,200,255,0.3);">
+      <span class="btn-icon">🎯</span> Focus camera
+    </button>
+  </div>
+
+  <!-- Controls hint -->
+  <div id="hint">
+    Double-click orb to fly to it &nbsp;·&nbsp;
+    WASD / ↑↓←→ fly &nbsp;·&nbsp;
+    E/Q up-down &nbsp;·&nbsp;
+    Shift turbo &nbsp;·&nbsp;
+    Esc overview &nbsp;·&nbsp;
+    Drag orbit &nbsp;·&nbsp;
+    Scroll zoom
+  </div>
+
+  <!-- Three.js app -->
+  <script type="module" src="./index.js"></script>
+</body>
+</html>
