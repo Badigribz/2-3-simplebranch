@@ -470,7 +470,7 @@ function createFamilyNode({ name, id }) {
 const loader = new GLTFLoader();
 
 const trunkURL  = new URL('./assets/mybark.glb',  import.meta.url).href;
-const branchURL = new URL('./assets/branch.glb', import.meta.url).href;
+const branchURL = new URL('./assets/branch1.glb', import.meta.url).href;
 
 let TRUNK_ANCHOR       = null;
 let BRANCH_MODEL       = null;
