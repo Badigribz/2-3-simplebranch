@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Family Member Profile</title>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Trebuchet MS', 'Segoe UI', system-ui, sans-serif;
+      background: linear-gradient(135deg, #0a1628 0%, #1a2642 100%);
+      color: #e8f0ff;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    /* ── Back button ────────────────────────────── */
+    .back-btn {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: rgba(20, 40, 80, 0.7);
+      border: 1px solid rgba(80, 140, 255, 0.3);
+      border-radius: 8px;
+      color: #a8d0ff;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      backdrop-filter: blur(10px);
+      transition: all 0.2s ease;
+      z-index: 100;
+    }
+
+    .back-btn:hover {
+      background: rgba(30, 60, 120, 0.85);
+      border-color: rgba(100, 180, 255, 0.6);
+      color: #d8f0ff;
+      transform: translateX(-3px);
+    }
+
+    /* ── Main container ────────────────────────── */
+    .profile-container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: rgba(15, 25, 50, 0.6);
+      border: 1px solid rgba(60, 100, 180, 0.25);
+      border-radius: 20px;
+      padding: 60px;
+      backdrop-filter: blur(12px);
+      box-shadow: 
+        0 0 0 1px rgba(80, 140, 255, 0.1),
+        0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+
+    /* ── Header section ────────────────────────── */
+    .profile-header {
+      text-align: center;
+      margin-bottom: 50px;
+      padding-bottom: 40px;
+      border-bottom: 1px solid rgba(80, 140, 255, 0.15);
+    }
+
+    .profile-photo {
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 4px solid rgba(100, 180, 255, 0.4);
+      box-shadow: 
+        0 0 0 8px rgba(20, 40, 100, 0.3),
+        0 0 30px rgba(60, 140, 255, 0.25);
+      margin: 0 auto 24px;
+      display: block;
+    }
+
+    .profile-photo-placeholder {
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(60, 120, 200, 0.3), rgba(40, 80, 160, 0.3));
+      border: 4px solid rgba(100, 180, 255, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 64px;
+      margin: 0 auto 24px;
+      color: rgba(140, 200, 255, 0.4);
+    }
+
+    .profile-name {
+      font-size: 42px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: #e8f4ff;
+      text-shadow: 0 0 20px rgba(100, 180, 255, 0.4);
+      margin-bottom: 8px;
+    }
+
+    .profile-dates {
+      font-size: 16px;
+      color: rgba(140, 200, 255, 0.7);
+      letter-spacing: 0.08em;
+    }
+
+    /* ── Content sections ──────────────────────── */
+    .profile-section {
+      margin-bottom: 40px;
+    }
+
+    .profile-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: rgba(120, 180, 255, 0.6);
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(80, 140, 255, 0.15);
+    }
+
+    .section-content {
+      font-size: 16px;
+      line-height: 1.7;
+      color: rgba(200, 220, 255, 0.85);
+    }
+
+    .section-content p {
+      margin-bottom: 14px;
+    }
+
+    .section-content p:last-child {
+      margin-bottom: 0;
+    }
+
+    /* ── Info grid (for structured data) ────────── */
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+    }
+
+    .info-item {
+      background: rgba(20, 40, 80, 0.3);
+      padding: 16px;
+      border-radius: 10px;
+      border: 1px solid rgba(80, 140, 255, 0.15);
+    }
+
+    .info-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: rgba(120, 180, 255, 0.5);
+      margin-bottom: 6px;
+    }
+
+    .info-value {
+      font-size: 16px;
+      font-weight: 500;
+      color: #d8f0ff;
+    }
+
+    /* ── Loading/empty states ───────────────────── */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: rgba(140, 200, 255, 0.4);
+      font-style: italic;
+    }
+
+    /* ── Edit button ────────────────────────────── */
+    .edit-btn {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 10px 18px;
+      background: rgba(60, 140, 220, 0.25);
+      border: 1px solid rgba(100, 180, 255, 0.4);
+      border-radius: 8px;
+      color: #a8d0ff;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      transition: all 0.2s ease;
+    }
+
+    .edit-btn:hover {
+      background: rgba(80, 160, 240, 0.4);
+      border-color: rgba(120, 200, 255, 0.6);
+      color: #fff;
+    }
+
+    /* ── Responsive ─────────────────────────────── */
+    @media (max-width: 768px) {
+      .profile-container {
+        padding: 40px 30px;
+      }
+
+      .profile-name {
+        font-size: 32px;
+      }
+
+      .back-btn {
+        top: 10px;
+        left: 10px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Back to tree button -->
+  <a href="/" class="back-btn">
+    <span>←</span> Back to Family Tree
+  </a>
+
+  <!-- Edit button (you can enable this later) -->
+  <!-- <button class="edit-btn" id="edit-profile">✏️ Edit Profile</button> -->
+
+  <div class="profile-container">
+
+    <!-- Header: Photo + Name + Dates -->
+    <div class="profile-header">
+      <div class="profile-photo-placeholder" id="photo-container">👤</div>
+
+      <h1 class="profile-name" id="profile-name">Loading...</h1>
+      <div class="profile-dates" id="profile-dates">—</div>
+    </div>
+
+    <!-- Bio section -->
+    <div class="profile-section">
+      <h2 class="section-title">Biography</h2>
+      <div class="section-content" id="profile-bio">
+        <p class="empty-state">No biography available yet.</p>
+      </div>
+    </div>
+
+    <!-- Structured info -->
+    <div class="profile-section">
+      <h2 class="section-title">Details</h2>
+      <div class="info-grid">
+        <div class="info-item">
+          <div class="info-label">Birth Date</div>
+          <div class="info-value" id="birth-date">—</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Birth Place</div>
+          <div class="info-value" id="birth-place">—</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Death Date</div>
+          <div class="info-value" id="death-date">—</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Load person data via separate JS file -->
+  <script type="module" src="./person.js"></script>
+
+</body>
+</html>

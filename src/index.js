@@ -33,7 +33,6 @@ document.body.appendChild(renderer.domElement);
 // Loads your moonrise sky and uses it to light
 // every surface from every angle simultaneously
 // ─────────────────────────────────────────────
-//
 const hdrURL = new URL('./assets/qwantani_moonrise_puresky_1k.hdr', import.meta.url).href;
 
 new RGBELoader()
@@ -48,8 +47,8 @@ new RGBELoader()
 
       // Dark cinematic background — HDRI lights the scene but sky stays dark
       // To show the actual moonrise sky instead, comment the line below and
-       scene.background = hdriTexture;
-      // scene.background = new THREE.Color(0x060b1a);
+      // uncomment: scene.background = hdriTexture;
+      scene.background = new THREE.Color(0x060b1a);
 
       console.log('HDRI loaded successfully ✓');
     },
@@ -57,7 +56,7 @@ new RGBELoader()
     (err) => {
       console.error('HDRI failed to load:', err);
       // Fallback: plain dark background if HDRI missing
-     // scene.background = new THREE.Color(0x060b1a);
+      scene.background = new THREE.Color(0x060b1a);
     }
   );
 
@@ -672,6 +671,13 @@ panelFocus?.addEventListener('click', () => {
   const worldPos = new THREE.Vector3();
   SELECTED_ORB_REF.orb.getWorldPosition(worldPos);
   flyTo(worldPos, 1.6);
+});
+
+// View Profile — navigate to dedicated profile page
+const panelViewProfile = document.getElementById('btn-view-profile');
+panelViewProfile?.addEventListener('click', () => {
+  if (!SELECTED_PERSON_ID) return;
+  window.location.href = `/person.html?id=${SELECTED_PERSON_ID}`;
 });
 
 // ─────────────────────────────────────────────
