@@ -44,6 +44,68 @@
       transform: translateX(-3px);
     }
 
+    /* ── Edit controls (top right) ───────────────── */
+    .edit-controls {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      display: flex;
+      gap: 10px;
+      z-index: 100;
+    }
+
+    .btn {
+      padding: 10px 18px;
+      background: rgba(60, 140, 220, 0.25);
+      border: 1px solid rgba(100, 180, 255, 0.4);
+      border-radius: 8px;
+      color: #a8d0ff;
+      font-size: 14px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      transition: all 0.2s ease;
+    }
+
+    .btn:hover {
+      background: rgba(80, 160, 240, 0.4);
+      border-color: rgba(120, 200, 255, 0.6);
+      color: #fff;
+    }
+
+    .btn-save {
+      background: rgba(60, 180, 100, 0.3);
+      border-color: rgba(100, 220, 140, 0.5);
+    }
+
+    .btn-save:hover {
+      background: rgba(80, 200, 120, 0.5);
+      border-color: rgba(120, 240, 160, 0.7);
+    }
+
+    .btn-cancel {
+      background: rgba(200, 80, 80, 0.25);
+      border-color: rgba(255, 120, 120, 0.4);
+    }
+
+    .btn-cancel:hover {
+      background: rgba(220, 100, 100, 0.4);
+      border-color: rgba(255, 140, 140, 0.6);
+    }
+
+    .edit-mode-only {
+      display: none;
+    }
+
+    body.editing .edit-mode-only {
+      display: block;
+    }
+
+    body.editing .view-mode-only {
+      display: none;
+    }
+
     /* ── Main container ────────────────────────── */
     .profile-container {
       max-width: 900px;
@@ -66,6 +128,12 @@
       border-bottom: 1px solid rgba(80, 140, 255, 0.15);
     }
 
+    .photo-wrapper {
+      position: relative;
+      width: 180px;
+      margin: 0 auto 24px;
+    }
+
     .profile-photo {
       width: 180px;
       height: 180px;
@@ -75,7 +143,6 @@
       box-shadow: 
         0 0 0 8px rgba(20, 40, 100, 0.3),
         0 0 30px rgba(60, 140, 255, 0.25);
-      margin: 0 auto 24px;
       display: block;
     }
 
@@ -89,8 +156,29 @@
       align-items: center;
       justify-content: center;
       font-size: 64px;
-      margin: 0 auto 24px;
       color: rgba(140, 200, 255, 0.4);
+    }
+
+    .photo-upload-btn {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(60, 140, 220, 0.9);
+      border: 2px solid rgba(100, 180, 255, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 18px;
+      transition: all 0.2s ease;
+    }
+
+    .photo-upload-btn:hover {
+      background: rgba(80, 160, 240, 1);
+      transform: scale(1.1);
     }
 
     .profile-name {
@@ -106,6 +194,35 @@
       font-size: 16px;
       color: rgba(140, 200, 255, 0.7);
       letter-spacing: 0.08em;
+    }
+
+    /* ── Editable fields ───────────────────────── */
+    input[type="text"],
+    input[type="date"],
+    textarea {
+      width: 100%;
+      background: rgba(20, 40, 80, 0.4);
+      border: 1px solid rgba(80, 140, 255, 0.3);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: #e8f4ff;
+      font-size: 16px;
+      font-family: inherit;
+      transition: all 0.2s ease;
+    }
+
+    input[type="text"]:focus,
+    input[type="date"]:focus,
+    textarea:focus {
+      outline: none;
+      border-color: rgba(120, 200, 255, 0.6);
+      background: rgba(30, 60, 120, 0.5);
+    }
+
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+      line-height: 1.6;
     }
 
     /* ── Content sections ──────────────────────── */
@@ -142,7 +259,7 @@
       margin-bottom: 0;
     }
 
-    /* ── Info grid (for structured data) ────────── */
+    /* ── Info grid ─────────────────────────────── */
     .info-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -170,35 +287,12 @@
       color: #d8f0ff;
     }
 
-    /* ── Loading/empty states ───────────────────── */
+    /* ── Empty states ──────────────────────────── */
     .empty-state {
       text-align: center;
       padding: 40px 20px;
       color: rgba(140, 200, 255, 0.4);
       font-style: italic;
-    }
-
-    /* ── Edit button ────────────────────────────── */
-    .edit-btn {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      padding: 10px 18px;
-      background: rgba(60, 140, 220, 0.25);
-      border: 1px solid rgba(100, 180, 255, 0.4);
-      border-radius: 8px;
-      color: #a8d0ff;
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-      backdrop-filter: blur(10px);
-      transition: all 0.2s ease;
-    }
-
-    .edit-btn:hover {
-      background: rgba(80, 160, 240, 0.4);
-      border-color: rgba(120, 200, 255, 0.6);
-      color: #fff;
     }
 
     /* ── Responsive ─────────────────────────────── */
@@ -211,9 +305,16 @@
         font-size: 32px;
       }
 
-      .back-btn {
+      .back-btn, .edit-controls {
         top: 10px;
+      }
+
+      .back-btn {
         left: 10px;
+      }
+
+      .edit-controls {
+        right: 10px;
       }
     }
   </style>
@@ -226,14 +327,22 @@
     <span>←</span> Back to Family Tree
   </a>
 
-  <!-- Edit button (you can enable this later) -->
-  <!-- <button class="edit-btn" id="edit-profile">✏️ Edit Profile</button> -->
+  <!-- Edit controls -->
+  <div class="edit-controls">
+    <button class="btn view-mode-only" id="btn-edit">✏️ Edit Profile</button>
+    <button class="btn btn-save edit-mode-only" id="btn-save">💾 Save Changes</button>
+    <button class="btn btn-cancel edit-mode-only" id="btn-cancel">✕ Cancel</button>
+  </div>
 
   <div class="profile-container">
 
     <!-- Header: Photo + Name + Dates -->
     <div class="profile-header">
-      <div class="profile-photo-placeholder" id="photo-container">👤</div>
+      <div class="photo-wrapper">
+        <div class="profile-photo-placeholder" id="photo-container">👤</div>
+        <label class="photo-upload-btn edit-mode-only" for="photo-upload">📷</label>
+        <input type="file" id="photo-upload" accept="image/*" style="display: none;">
+      </div>
 
       <h1 class="profile-name" id="profile-name">Loading...</h1>
       <div class="profile-dates" id="profile-dates">—</div>
@@ -242,8 +351,11 @@
     <!-- Bio section -->
     <div class="profile-section">
       <h2 class="section-title">Biography</h2>
-      <div class="section-content" id="profile-bio">
-        <p class="empty-state">No biography available yet.</p>
+      <div class="section-content">
+        <div id="bio-view" class="view-mode-only">
+          <p class="empty-state">No biography available yet.</p>
+        </div>
+        <textarea id="bio-edit" class="edit-mode-only" placeholder="Write a biography..."></textarea>
       </div>
     </div>
 
@@ -251,24 +363,31 @@
     <div class="profile-section">
       <h2 class="section-title">Details</h2>
       <div class="info-grid">
+        
         <div class="info-item">
           <div class="info-label">Birth Date</div>
-          <div class="info-value" id="birth-date">—</div>
+          <div class="info-value view-mode-only" id="birth-date-view">—</div>
+          <input type="date" class="edit-mode-only" id="birth-date-edit">
         </div>
+
         <div class="info-item">
           <div class="info-label">Birth Place</div>
-          <div class="info-value" id="birth-place">—</div>
+          <div class="info-value view-mode-only" id="birth-place-view">—</div>
+          <input type="text" class="edit-mode-only" id="birth-place-edit" placeholder="City, Country">
         </div>
+
         <div class="info-item">
           <div class="info-label">Death Date</div>
-          <div class="info-value" id="death-date">—</div>
+          <div class="info-value view-mode-only" id="death-date-view">—</div>
+          <input type="date" class="edit-mode-only" id="death-date-edit">
         </div>
+
       </div>
     </div>
 
   </div>
 
-  <!-- Load person data via separate JS file -->
+  <!-- Load person data and handle editing -->
   <script type="module" src="./person.js"></script>
 
 </body>
