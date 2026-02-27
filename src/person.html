@@ -16,6 +16,81 @@
       padding: 40px 20px;
     }
 
+ /* ── Gallery button ────────────────────────── */
+    .gallery-btn {
+      position: fixed;
+      top: 20px;
+      left: 200px;  /* positioned right of back button */
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: rgba(20, 40, 80, 0.7);
+      border: 1px solid rgba(80, 200, 140, 0.4);
+      border-radius: 8px;
+      color: #a8e0d0;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      backdrop-filter: blur(10px);
+      transition: all 0.2s ease;
+      z-index: 100;
+    }
+
+    .gallery-btn:hover {
+      background: rgba(30, 80, 70, 0.85);
+      border-color: rgba(100, 240, 180, 0.6);
+      color: #d8fff0;
+      transform: translateY(-2px);
+    }
+
+
+ /* ── Gallery management ────────────────────── */
+    .gallery-photo-item {
+      position: relative;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid rgba(80, 140, 255, 0.2);
+      background: rgba(20, 40, 80, 0.3);
+    }
+
+    .gallery-photo-item img {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: cover;
+      display: block;
+    }
+
+    .gallery-photo-info {
+      padding: 8px;
+      font-size: 12px;
+      color: rgba(200, 220, 255, 0.8);
+    }
+
+    .gallery-photo-delete {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(200, 50, 50, 0.9);
+      border: none;
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      color: white;
+      cursor: pointer;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+
+    .gallery-photo-delete:hover {
+      background: rgba(255, 80, 80, 1);
+      transform: scale(1.1);
+    }
+
+
     /* ── Back button ────────────────────────────── */
     .back-btn {
       position: fixed;
@@ -327,6 +402,11 @@
     <span>←</span> Back to Family Tree
   </a>
 
+  <!-- Gallery button -->
+  <a href="#" class="gallery-btn" id="gallery-btn">
+    <span>📸</span> View Gallery
+  </a>
+
   <!-- Edit controls -->
   <div class="edit-controls">
     <button class="btn view-mode-only" id="btn-edit">✏️ Edit Profile</button>
@@ -382,6 +462,33 @@
           <input type="date" class="edit-mode-only" id="death-date-edit">
         </div>
 
+      </div>
+    </div>
+
+<!-- Photo Gallery Management -->
+    <div class="profile-section">
+      <h2 class="section-title">Photo Gallery</h2>
+      
+      <!-- View mode: Show photo count -->
+      <div class="view-mode-only">
+        <p id="gallery-summary" style="color: rgba(200, 220, 255, 0.7);">
+          Loading photos...
+        </p>
+      </div>
+
+      <!-- Edit mode: Upload photos -->
+      <div class="edit-mode-only">
+        <div style="margin-bottom: 20px;">
+          <label for="gallery-upload" class="btn" style="display: inline-flex; cursor: pointer;">
+            📤 Add Photos to Gallery
+          </label>
+          <input type="file" id="gallery-upload" accept="image/*" multiple style="display: none;">
+        </div>
+        
+        <!-- Photo list for management -->
+        <div id="gallery-photos" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px;">
+          <!-- Photos loaded here -->
+        </div>
       </div>
     </div>
 

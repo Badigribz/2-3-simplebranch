@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Photo Gallery</title>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      height: 100vh;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      background: linear-gradient(135deg, #0a1628 0%, #1a2642 100%);
+      font-family: 'Trebuchet MS', 'Segoe UI', system-ui, sans-serif;
+    }
+
+    /* ── Back button ───────────────────────────── */
+    .back-btn {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: rgba(20, 40, 80, 0.8);
+      border: 1px solid rgba(80, 140, 255, 0.4);
+      border-radius: 8px;
+      color: #a8d0ff;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      backdrop-filter: blur(10px);
+      transition: all 0.2s ease;
+    }
+
+    .back-btn:hover {
+      background: rgba(30, 60, 120, 0.9);
+      border-color: rgba(100, 180, 255, 0.6);
+      color: #d8f0ff;
+      transform: translateX(-3px);
+    }
+
+    /* ── Person info header ────────────────────── */
+    .person-header {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 100;
+      text-align: right;
+      color: rgba(200, 220, 255, 0.8);
+    }
+
+    .person-name {
+      font-size: 18px;
+      font-weight: 600;
+      color: #e8f4ff;
+      text-shadow: 0 0 10px rgba(80, 150, 255, 0.5);
+    }
+
+    .photo-count {
+      font-size: 12px;
+      color: rgba(140, 200, 255, 0.6);
+      margin-top: 4px;
+    }
+
+    /* ── Main slider container ─────────────────── */
+    main {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    .slider {
+      list-style: none;
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+
+    .item {
+      width: 200px;
+      height: 300px;
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 1;
+      background-position: center;
+      background-size: cover;
+      border-radius: 20px;
+      box-shadow: 0 20px 30px rgba(60, 140, 255, 0.2) inset;
+      transition: transform 0.1s, left 0.75s, top 0.75s, width 0.75s, height 0.75s;
+    }
+
+    /* Active photo (full screen) */
+    .item:nth-child(1),
+    .item:nth-child(2) {
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      transform: none;
+      border-radius: 0;
+      box-shadow: none;
+      opacity: 1;
+    }
+
+    /* Preview thumbnails */
+    .item:nth-child(3) { left: 50%; }
+    .item:nth-child(4) { left: calc(50% + 220px); }
+    .item:nth-child(5) { left: calc(50% + 440px); }
+    .item:nth-child(6) { left: calc(50% + 660px); opacity: 0; }
+
+    /* Content overlay on active photo */
+    .content {
+      width: min(40vw, 500px);
+      position: absolute;
+      top: 50%;
+      left: 3rem;
+      transform: translateY(-50%);
+      color: white;
+      text-shadow: 0 3px 8px rgba(0, 0, 0, 0.7);
+      opacity: 0;
+      display: none;
+    }
+
+    .content .title {
+      font-family: 'Trebuchet MS', sans-serif;
+      font-size: 2rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+      letter-spacing: 0.05em;
+    }
+
+    .content .description {
+      line-height: 1.7;
+      font-size: 1rem;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 1rem;
+      border-radius: 10px;
+      backdrop-filter: blur(10px);
+    }
+
+    /* Show content for the second item (active photo) */
+    .item:nth-of-type(2) .content {
+      display: block;
+      animation: show 0.75s ease-in-out 0.3s forwards;
+    }
+
+    @keyframes show {
+      0% {
+        filter: blur(5px);
+        transform: translateY(calc(-50% + 75px));
+      }
+      100% {
+        opacity: 1;
+        filter: blur(0);
+      }
+    }
+
+    /* ── Navigation buttons ────────────────────── */
+    .nav {
+      position: absolute;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 5;
+      user-select: none;
+      display: flex;
+      gap: 1rem;
+    }
+
+    .btn {
+      background: rgba(60, 140, 220, 0.7);
+      color: white;
+      border: 2px solid rgba(100, 180, 255, 0.6);
+      padding: 0.75rem;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 24px;
+      width: 50px;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      backdrop-filter: blur(10px);
+    }
+
+    .btn:hover {
+      background: rgba(80, 160, 240, 0.9);
+      border-color: rgba(120, 200, 255, 0.8);
+      transform: scale(1.1);
+    }
+
+    /* ── Empty state ───────────────────────────── */
+    .empty-state {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: rgba(140, 200, 255, 0.6);
+    }
+
+    .empty-state h2 {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+    }
+
+    .empty-state p {
+      font-size: 1.1rem;
+    }
+
+    /* ── Responsive ─────────────────────────────── */
+    @media (width > 650px) and (width < 900px) {
+      .content .title { font-size: 1.5rem; }
+      .content .description { font-size: 0.9rem; }
+      .item {
+        width: 160px;
+        height: 270px;
+      }
+      .item:nth-child(3) { left: 50%; }
+      .item:nth-child(4) { left: calc(50% + 170px); }
+      .item:nth-child(5) { left: calc(50% + 340px); }
+      .item:nth-child(6) { left: calc(50% + 510px); opacity: 0; }
+    }
+
+    @media (width < 650px) {
+      .content {
+        width: 80vw;
+        left: 10vw;
+      }
+      .content .title { font-size: 1.2rem; }
+      .content .description { font-size: 0.8rem; }
+      .item {
+        width: 130px;
+        height: 220px;
+      }
+      .item:nth-child(3) { left: 50%; }
+      .item:nth-child(4) { left: calc(50% + 140px); }
+      .item:nth-child(5) { left: calc(50% + 280px); }
+      .item:nth-child(6) { left: calc(50% + 420px); opacity: 0; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Back button -->
+  <a href="#" class="back-btn" id="back-btn">
+    <span>←</span> Back to Profile
+  </a>
+
+  <!-- Person info -->
+  <div class="person-header">
+    <div class="person-name" id="person-name">Loading...</div>
+    <div class="photo-count" id="photo-count">— photos</div>
+  </div>
+
+  <!-- Gallery slider -->
+  <main>
+    <ul class="slider" id="slider">
+      <!-- Photos loaded dynamically -->
+    </ul>
+
+    <nav class="nav">
+      <button class="btn prev">‹</button>
+      <button class="btn next">›</button>
+    </nav>
+  </main>
+
+  <!-- Empty state (shown if no photos) -->
+  <div class="empty-state" id="empty-state" style="display: none;">
+    <h2>📸 No Photos Yet</h2>
+    <p>This gallery is empty. Add photos from the profile page.</p>
+  </div>
+
+  <script type="module" src="./gallery.js"></script>
+
+</body>
+</html>

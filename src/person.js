@@ -247,3 +247,172 @@ photoUpload?.addEventListener('change', async (e) => {
     displayPerson(currentPerson);
   }
 });
+
+// ─────────────────────────────────────────────
+// GALLERY: Set up gallery button link
+// ─────────────────────────────────────────────
+const galleryBtn = document.getElementById('gallery-btn');
+if (galleryBtn && personId) {
+  galleryBtn.href = `/gallery.html?id=${personId}`;
+}
+
+// ─────────────────────────────────────────────
+// GALLERY: Load gallery summary
+// ─────────────────────────────────────────────
+async function loadGallerySummary() {
+  try {
+    const response = await fetch(`http://127.0.0.1:8000/api/people/${personId}/photos`);
+    if (!response.ok) throw new Error('Failed to load photos');
+    
+    const photos = await response.json();
+    const summary = document.getElementById('gallery-summary');
+    
+    if (photos.length === 0) {
+      summary.textContent = 'No photos in gallery yet. Click "Edit Profile" to add some!';
+    } else {
+      summary.textContent = `${photos.length} photo${photos.length !== 1 ? 's' : ''} in gallery. Click "View Gallery" to see them.`;
+    }
+  } catch (err) {
+    console.error('Failed to load gallery summary:', err);
+  }
+}
+
+// Load summary when page loads
+if (personId) {
+  loadGallerySummary();
+}
+
+// ─────────────────────────────────────────────
+// GALLERY: Upload multiple photos
+// ─────────────────────────────────────────────
+const galleryUpload = document.getElementById('gallery-upload');
+galleryUpload?.addEventListener('change', async (e) => {
+  const files = Array.from(e.target.files);
+  if (files.length === 0) return;
+
+  // Validate files
+  for (const file of files) {
+    if (!file.type.startsWith('image/')) {
+      alert(`${file.name} is not an image`);
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert(`${file.name} is too large (max 5MB)`);
+      return;
+    }
+  }
+
+  // Upload each photo
+  const uploadPromises = files.map(async (file) => {
+    const formData = new FormData();
+    formData.append('photo', file);
+    
+    // Prompt for title and caption
+    const title = prompt(`Title for ${file.name}:`) || '';
+    const caption = prompt(`Story/caption for ${file.name}:`) || '';
+    
+    formData.append('title', title);
+    formData.append('caption', caption);
+
+    const response = await fetch(`http://127.0.0.1:8000/api/people/${personId}/photos`, {
+      method: 'POST',
+      body: formData,
+      headers: { 'Accept': 'application/json' }
+    });
+
+    if (!response.ok) throw new Error(`Failed to upload ${file.name}`);
+    return response.json();
+  });
+
+  try {
+    await Promise.all(uploadPromises);
+    alert('Photos uploaded successfully!');
+    loadGalleryPhotos();  // Refresh the gallery
+    loadGallerySummary(); // Update summary
+  } catch (err) {
+    console.error('Photo upload failed:', err);
+    alert(`Some photos failed to upload: ${err.message}`);
+  }
+});
+
+// ─────────────────────────────────────────────
+// GALLERY: Load photos for management (in edit mode)
+// ─────────────────────────────────────────────
+async function loadGalleryPhotos() {
+  try {
+    const response = await fetch(`http://127.0.0.1:8000/api/people/${personId}/photos`);
+    if (!response.ok) throw new Error('Failed to load photos');
+    
+    const photos = await response.json();
+    const container = document.getElementById('gallery-photos');
+    container.innerHTML = '';
+
+    if (photos.length === 0) {
+      container.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: rgba(140, 200, 255, 0.5);">No photos yet. Upload some above!</p>';
+      return;
+    }
+
+    photos.forEach(photo => {
+      const item = document.createElement('div');
+      item.className = 'gallery-photo-item';
+      
+      const img = document.createElement('img');
+      img.src = photo.url;
+      img.alt = photo.title || 'Gallery photo';
+      
+      const info = document.createElement('div');
+      info.className = 'gallery-photo-info';
+      info.textContent = photo.title || '(no title)';
+      
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'gallery-photo-delete';
+      deleteBtn.textContent = '✕';
+      deleteBtn.onclick = () => deletePhoto(photo.id);
+      
+      item.appendChild(img);
+      item.appendChild(info);
+      item.appendChild(deleteBtn);
+      container.appendChild(item);
+    });
+  } catch (err) {
+    console.error('Failed to load gallery photos:', err);
+  }
+}
+
+// ─────────────────────────────────────────────
+// GALLERY: Delete a photo
+// ─────────────────────────────────────────────
+async function deletePhoto(photoId) {
+  if (!confirm('Delete this photo from the gallery?')) return;
+
+  try {
+    const response = await fetch(`http://127.0.0.1:8000/api/photos/${photoId}`, {
+      method: 'DELETE',
+      headers: { 'Accept': 'application/json' }
+    });
+
+    if (!response.ok) throw new Error('Failed to delete photo');
+    
+    alert('Photo deleted');
+    loadGalleryPhotos();
+    loadGallerySummary();
+  } catch (err) {
+    console.error('Delete failed:', err);
+    alert(`Failed to delete photo: ${err.message}`);
+  }
+}
+
+// ─────────────────────────────────────────────
+// GALLERY: Load photos when entering edit mode
+// ─────────────────────────────────────────────
+// UPDATE THE EXISTING btnEdit LISTENER TO ALSO LOAD PHOTOS:
+
+// Find this line in your existing code:
+// btnEdit?.addEventListener('click', () => {
+
+// And add this inside it:
+btnEdit?.addEventListener('click', () => {
+  document.body.classList.add('editing');
+  populateEditFields();
+  loadGalleryPhotos();  // ← ADD THIS LINE
+});
