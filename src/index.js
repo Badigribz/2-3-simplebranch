@@ -353,43 +353,6 @@ function createLabelSprite(text, personId) {
 }
 
 // ─────────────────────────────────────────────
-// ICON SPRITE (+ / −)
-// ─────────────────────────────────────────────
-function createIconSprite({ symbol, glowColor = 'rgba(80,180,255,0.9)', bgColor = 'rgba(10,25,70,0.85)' }) {
-  const S = 128;
-  const canvas = document.createElement('canvas');
-  canvas.width = S; canvas.height = S;
-  const ctx = canvas.getContext('2d');
-
-  const grad = ctx.createRadialGradient(64, 64, 36, 64, 64, 62);
-  grad.addColorStop(0, 'rgba(40,100,255,0.0)');
-  grad.addColorStop(1, glowColor.replace('0.9', '0.35'));
-  ctx.fillStyle = grad;
-  ctx.beginPath(); ctx.arc(64, 64, 62, 0, Math.PI * 2); ctx.fill();
-
-  ctx.fillStyle = bgColor;
-  ctx.beginPath(); ctx.arc(64, 64, 50, 0, Math.PI * 2); ctx.fill();
-
-  ctx.strokeStyle = glowColor; ctx.lineWidth = 3; ctx.stroke();
-  ctx.strokeStyle = '#c8e8ff'; ctx.lineWidth = 9; ctx.lineCap = 'round';
-  ctx.shadowColor = glowColor; ctx.shadowBlur = 12;
-
-  if (symbol === '+') {
-    ctx.beginPath(); ctx.moveTo(64, 36); ctx.lineTo(64, 92); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(36, 64); ctx.lineTo(92, 64); ctx.stroke();
-  } else if (symbol === '−') {
-    ctx.beginPath(); ctx.moveTo(36, 64); ctx.lineTo(92, 64); ctx.stroke();
-  }
-
-  const texture = new THREE.CanvasTexture(canvas);
-  const sprite  = new THREE.Sprite(
-    new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false })
-  );
-  sprite.scale.set(0.38, 0.38, 1);
-  return sprite;
-}
-
-// ─────────────────────────────────────────────
 // TENDRILS
 // ─────────────────────────────────────────────
 const tendrils = [];
@@ -440,16 +403,6 @@ function createFamilyNode({ name, id }) {
   group.add(glowSprite);
 
   allOrbs.push({ orb, halo, glowSprite, phase: Math.random() * Math.PI * 2 });
-
-  const plus = createIconSprite({ symbol: '+', glowColor: 'rgba(80,200,120,0.9)', bgColor: 'rgba(5,30,15,0.88)' });
-  plus.position.set(0.42, 0.1, 0);
-  plus.userData = { isAddButton: true, parentId: id };
-  group.add(plus);
-
-  const minus = createIconSprite({ symbol: '−', glowColor: 'rgba(255,80,80,0.9)', bgColor: 'rgba(40,5,5,0.88)' });
-  minus.position.set(-0.42, 0.1, 0);
-  minus.userData = { isDeleteButton: true, personId: id };
-  group.add(minus);
 
   const anchor = new THREE.Object3D();
   anchor.position.set(0, 0.28, 0);
@@ -700,28 +653,6 @@ window.addEventListener('click', async (e) => {
 
   for (const hit of hits) {
     let obj = hit.object;
-
-    if (obj.userData?.isAddButton) {
-      const name = prompt('Child name?');
-      if (!name) return;
-      await fetch('http://127.0.0.1:8000/api/people', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ name, parent_id: obj.userData.parentId })
-      });
-      reloadTree();
-      return;
-    }
-
-    if (obj.userData?.isDeleteButton) {
-      if (!confirm('Delete this person and all their descendants?')) return;
-      await fetch(`http://127.0.0.1:8000/api/people/${obj.userData.personId}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }
-      });
-      reloadTree();
-      return;
-    }
 
     if (obj.userData?.isLabel) {
       const newName = prompt('Rename person:');
