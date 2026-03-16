@@ -3,6 +3,14 @@
 // Import this at the top of any protected page
 // ─────────────────────────────────────────────
 
+// Helper function to get cookie value
+function getCookie(name) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(';').shift();
+  return null;
+}
+
 export async function requireAuth() {
   try {
     const response = await fetch('http://127.0.0.1:8000/api/user', {
@@ -48,14 +56,24 @@ export function requireRole(role) {
   return true;
 }
 
-// Logout function
+// Logout function with XSRF token
 export async function logout() {
   try {
+    // Get XSRF token from cookie
+    const xsrfToken = getCookie('XSRF-TOKEN');
+    const decodedToken = xsrfToken ? decodeURIComponent(xsrfToken) : '';
+
     await fetch('http://127.0.0.1:8000/api/logout', {
       method: 'POST',
       credentials: 'include',
-      headers: { 'Accept': 'application/json' }
+      headers: { 
+        'Accept': 'application/json',
+        'X-XSRF-TOKEN': decodedToken,
+        'X-Requested-With': 'XMLHttpRequest'
+      }
     });
+    
+    console.log('Logged out successfully');
   } catch (err) {
     console.error('Logout failed:', err);
   } finally {

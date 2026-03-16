@@ -1,8 +1,16 @@
 import * as THREE from 'three';
 import { GLTFLoader }    from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { RGBELoader }    from 'three/examples/jsm/loaders/RGBELoader.js';   // ← IBL
+import { RGBELoader }    from 'three/examples/jsm/loaders/RGBELoader.js'; 
+import { requireAuth } from './auth.js';
+import { logout } from './auth.js';
 
+
+(async function initializeTree() {
+  // Check authentication first
+  const user = await requireAuth();
+  if (!user) return; // Will redirect to login if not authenticated
+  
 // ─────────────────────────────────────────────
 // SCENE
 // ─────────────────────────────────────────────
@@ -28,6 +36,9 @@ renderer.useLegacyLights  = false;               // modern physically correct li
 renderer.outputColorSpace = THREE.SRGBColorSpace; // correct colour space (replaces outputEncoding)
 document.body.appendChild(renderer.domElement);
 
+
+
+document.getElementById('logout-btn')?.addEventListener('click', logout);
 // ─────────────────────────────────────────────
 // IBL — HDRI IMAGE BASED LIGHTING
 // Loads your moonrise sky and uses it to light
@@ -553,15 +564,20 @@ function reloadTree() {
     TRUNK_ANCHOR.remove(TRUNK_ANCHOR.children[0]);
   }
 
-  fetch('http://127.0.0.1:8000/api/tree')
-    .then(res => res.json())
-    .then(data => {
-      buildTreeFromAPI(data, TRUNK_ANCHOR);
-      requestAnimationFrame(() => {
-        buildTendrils();
-        updateInfoPanel(null);
-      });
-    });
+fetch('http://127.0.0.1:8000/api/tree', {
+  credentials: 'include',
+  headers: {
+    'Accept': 'application/json'
+  }
+})
+.then(res => res.json())
+.then(data => {
+  buildTreeFromAPI(data, TRUNK_ANCHOR);
+  requestAnimationFrame(() => {
+    buildTendrils();
+    updateInfoPanel(null);
+  });
+});
 }
 
 // ─────────────────────────────────────────────
@@ -584,37 +600,59 @@ function updateInfoPanel(personData) {
 
 panelRename?.addEventListener('click', async () => {
   if (!SELECTED_PERSON_ID) return;
+
   const newName = prompt('Rename person:');
   if (!newName?.trim()) return;
+
   await fetch(`http://127.0.0.1:8000/api/people/${SELECTED_PERSON_ID}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    },
     body: JSON.stringify({ name: newName.trim() })
   });
+
   reloadTree();
 });
 
 panelAddChild?.addEventListener('click', async () => {
   if (!SELECTED_PERSON_ID) return;
+
   const name = prompt('Child name?');
   if (!name) return;
+
   await fetch('http://127.0.0.1:8000/api/people', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    },
     body: JSON.stringify({ name, parent_id: SELECTED_PERSON_ID })
   });
+
   reloadTree();
 });
 
 panelDelete?.addEventListener('click', async () => {
   if (!SELECTED_PERSON_ID) return;
+
   if (!confirm('Delete this person and all their descendants?')) return;
+
   await fetch(`http://127.0.0.1:8000/api/people/${SELECTED_PERSON_ID}`, {
     method: 'DELETE',
-    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    }
   });
+
   SELECTED_PERSON_ID = null;
   SELECTED_ORB_REF   = null;
+
   updateInfoPanel(null);
   reloadTree();
 });
@@ -657,11 +695,17 @@ window.addEventListener('click', async (e) => {
     if (obj.userData?.isLabel) {
       const newName = prompt('Rename person:');
       if (!newName?.trim()) return;
+
       await fetch(`http://127.0.0.1:8000/api/people/${obj.userData.personId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
         body: JSON.stringify({ name: newName.trim() })
       });
+
       reloadTree();
       return;
     }
@@ -744,3 +788,8 @@ function animate() {
   renderer.render(scene, camera);
 }
 animate();
+  // ... all your existing Three.js code ...
+ 
+})(); // ← Don't forget this closing parenthesis and ()
+
+

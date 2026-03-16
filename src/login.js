@@ -1,10 +1,18 @@
 // ─────────────────────────────────────────────
-// LOGIN HANDLER
+// LOGIN HANDLER - FINAL VERSION WITH XSRF FIX
 // ─────────────────────────────────────────────
 
 const form = document.getElementById('login-form');
 const submitBtn = document.getElementById('submit-btn');
 const errorMessage = document.getElementById('error-message');
+
+// Helper function to get cookie value
+function getCookie(name) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(';').shift();
+  return null;
+}
 
 // Check if already logged in
 checkIfAlreadyLoggedIn();
@@ -47,19 +55,35 @@ form.addEventListener('submit', async (e) => {
   submitBtn.innerHTML = '<span class="loading-spinner"></span> Signing in...';
 
   try {
-    // Step 1: Get CSRF cookie (required for Laravel Sanctum)
+    // Step 1: Get CSRF cookie
     await fetch('http://127.0.0.1:8000/sanctum/csrf-cookie', {
+      method: 'GET',
       credentials: 'include',
-      headers: { 'Accept': 'application/json' }
+      headers: { 
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      }
     });
 
-    // Step 2: Attempt login
+    // Small delay to ensure cookie is set
+    await new Promise(resolve => setTimeout(resolve, 150));
+
+    // Step 2: Get the XSRF token from cookie and decode it
+    const xsrfToken = getCookie('XSRF-TOKEN');
+    const decodedToken = xsrfToken ? decodeURIComponent(xsrfToken) : '';
+
+    console.log('XSRF Token found:', !!decodedToken);
+
+    // Step 3: Attempt login with explicit XSRF header
     const response = await fetch('http://127.0.0.1:8000/api/login', {
       method: 'POST',
       credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-XSRF-TOKEN': decodedToken,  // Manual XSRF token
+        'Referer': 'http://127.0.0.1:1234'  // Help Laravel identify origin
       },
       body: JSON.stringify({
         email,
@@ -67,10 +91,11 @@ form.addEventListener('submit', async (e) => {
       })
     });
 
-    const data = await response.json();
+    // Debug: Log response status
+    console.log('Login response status:', response.status);
 
     if (response.ok) {
-      // Login successful
+      const data = await response.json();
       console.log('Login successful:', data.user.name);
       
       // Store user data (optional, for debugging)
@@ -80,8 +105,22 @@ form.addEventListener('submit', async (e) => {
       window.location.href = '/';
 
     } else {
-      // Login failed
-      handleLoginError(response.status, data.message);
+      // Login failed - get error message
+      let errorMsg = 'Invalid email or password';
+      
+      try {
+        const data = await response.json();
+        errorMsg = data.message || errorMsg;
+      } catch (e) {
+        // If response isn't JSON, use status code
+        if (response.status === 419) {
+          errorMsg = 'Session error. Please refresh the page and try again.';
+        } else if (response.status === 422) {
+          errorMsg = 'Please check your email and password';
+        }
+      }
+      
+      handleLoginError(response.status, errorMsg);
     }
 
   } catch (err) {
@@ -96,6 +135,10 @@ form.addEventListener('submit', async (e) => {
 
 function handleLoginError(status, message) {
   switch (status) {
+    case 419:
+      // CSRF token mismatch
+      showError('Session error. Please refresh the page and try again.');
+      break;
     case 403:
       // Account pending approval or deactivated
       showError(message || 'Your account is pending approval');
@@ -107,7 +150,7 @@ function handleLoginError(status, message) {
     case 401:
     default:
       // Invalid credentials
-      showError('Invalid email or password');
+      showError(message || 'Invalid email or password');
       break;
   }
 }

@@ -1,11 +1,19 @@
 // ─────────────────────────────────────────────
-// REGISTRATION HANDLER
+// REGISTRATION HANDLER - FIXED WITH XSRF TOKEN
 // ─────────────────────────────────────────────
 
 const form = document.getElementById('register-form');
 const submitBtn = document.getElementById('submit-btn');
 const errorMessage = document.getElementById('error-message');
 const successMessage = document.getElementById('success-message');
+
+// Helper function to get cookie value
+function getCookie(name) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(';').shift();
+  return null;
+}
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -44,13 +52,35 @@ form.addEventListener('submit', async (e) => {
   submitBtn.innerHTML = '<span class="loading-spinner"></span> Submitting request...';
 
   try {
-    // Attempt registration
+    // Step 1: Get CSRF cookie first
+    await fetch('http://127.0.0.1:8000/sanctum/csrf-cookie', {
+      method: 'GET',
+      credentials: 'include',
+      headers: { 
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    });
+
+    // Small delay to ensure cookie is set
+    await new Promise(resolve => setTimeout(resolve, 150));
+
+    // Step 2: Get XSRF token from cookie
+    const xsrfToken = getCookie('XSRF-TOKEN');
+    const decodedToken = xsrfToken ? decodeURIComponent(xsrfToken) : '';
+
+    console.log('XSRF Token found:', !!decodedToken);
+
+    // Step 3: Attempt registration with XSRF header
     const response = await fetch('http://127.0.0.1:8000/api/register', {
       method: 'POST',
       credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-XSRF-TOKEN': decodedToken,
+        'Referer': 'http://127.0.0.1:1234'
       },
       body: JSON.stringify({
         name,

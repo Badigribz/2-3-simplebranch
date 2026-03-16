@@ -49,6 +49,39 @@
       font-weight: 400;
     }
 
+    /* ── Logout button ──────────────────────────── */
+    #logout-btn {
+      position: fixed;
+      top: 12px;
+      right: 20px;
+      padding: 8px 18px;
+      background: rgba(200, 50, 50, 0.35);
+      border: 1px solid rgba(255, 100, 100, 0.4);
+      border-radius: 8px;
+      color: #ffcccc;
+      cursor: pointer;
+      font-size: 11px;
+      font-family: inherit;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      z-index: 100;
+      transition: all 0.2s ease;
+      pointer-events: all;
+    }
+
+    #logout-btn:hover {
+      background: rgba(220, 60, 60, 0.55);
+      border-color: rgba(255, 120, 120, 0.6);
+      box-shadow: 0 0 12px rgba(200, 60, 60, 0.3);
+      color: #fff;
+      transform: translateY(-1px);
+    }
+
+    #logout-btn:active {
+      transform: translateY(0);
+    }
+
     /* ── Info panel ───────────────────────────────── */
     #info-panel {
       position: absolute;
@@ -223,6 +256,9 @@
     <h1>Family Tree</h1>
     <span>/ lineage</span>
   </div>
+
+  <!-- Logout button -->
+  <button id="logout-btn">Logout</button>
 
   <!-- Info panel (slides in on selection) -->
   <div id="info-panel">
