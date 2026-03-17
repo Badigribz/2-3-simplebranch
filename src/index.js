@@ -10,6 +10,28 @@ import { logout } from './auth.js';
   // Check authentication first
   const user = await requireAuth();
   if (!user) return; // Will redirect to login if not authenticated
+
+// ─────────────────────────────────────────────
+// XSRF TOKEN HELPERS
+// ─────────────────────────────────────────────
+function getCookie(name) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(';').shift();
+  return null;
+}
+
+function getAuthHeaders() {
+  const xsrfToken = getCookie('XSRF-TOKEN');
+  const decodedToken = xsrfToken ? decodeURIComponent(xsrfToken) : '';
+  
+  return {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'X-Requested-With': 'XMLHttpRequest',
+    'X-XSRF-TOKEN': decodedToken
+  };
+}
   
 // ─────────────────────────────────────────────
 // SCENE
@@ -607,10 +629,7 @@ panelRename?.addEventListener('click', async () => {
   await fetch(`http://127.0.0.1:8000/api/people/${SELECTED_PERSON_ID}`, {
     method: 'PATCH',
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json'
-    },
+    headers: getAuthHeaders(),
     body: JSON.stringify({ name: newName.trim() })
   });
 
@@ -626,10 +645,7 @@ panelAddChild?.addEventListener('click', async () => {
   await fetch('http://127.0.0.1:8000/api/people', {
     method: 'POST',
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json'
-    },
+    headers: getAuthHeaders(),
     body: JSON.stringify({ name, parent_id: SELECTED_PERSON_ID })
   });
 
@@ -644,10 +660,7 @@ panelDelete?.addEventListener('click', async () => {
   await fetch(`http://127.0.0.1:8000/api/people/${SELECTED_PERSON_ID}`, {
     method: 'DELETE',
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json'
-    }
+    headers: getAuthHeaders()
   });
 
   SELECTED_PERSON_ID = null;
@@ -699,10 +712,7 @@ window.addEventListener('click', async (e) => {
       await fetch(`http://127.0.0.1:8000/api/people/${obj.userData.personId}`, {
         method: 'PATCH',
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ name: newName.trim() })
       });
 
@@ -791,5 +801,3 @@ animate();
   // ... all your existing Three.js code ...
  
 })(); // ← Don't forget this closing parenthesis and ()
-
-

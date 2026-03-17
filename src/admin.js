@@ -102,7 +102,9 @@ async function loadPendingUsers() {
           ` : ''}
         </div>
         <div class="user-actions">
-          <button class="btn btn-success btn-sm" onclick="approveUser(${user.id})">
+          <button 
+            class="btn btn-success btn-sm" 
+            onclick='approveUser(${user.id}, ${JSON.stringify(escapeHtml(user.name))}, ${JSON.stringify(escapeHtml(user.email))}, ${JSON.stringify(escapeHtml(user.registration_note || ""))})'>
             ✓ Approve
           </button>
           <button class="btn btn-danger btn-sm" onclick="rejectUser(${user.id})">
@@ -185,21 +187,162 @@ async function loadActiveUsers() {
 }
 
 // ─────────────────────────────────────────────
-// APPROVE USER
+// GLOBAL STATE
 // ─────────────────────────────────────────────
-window.approveUser = async function(userId) {
-  if (!confirm('Approve this user?')) return;
+let currentApprovalUserId = null;
+let allPeople = [];
+
+// ─────────────────────────────────────────────
+// LOAD ALL PEOPLE FOR DROPDOWNS
+// ─────────────────────────────────────────────
+async function loadAllPeople() {
+  try {
+    const response = await fetch('http://127.0.0.1:8000/api/people', {
+      credentials: 'include',
+      headers: getHeaders()
+    });
+
+    if (!response.ok) throw new Error('Failed to load people');
+
+    allPeople = await response.json();
+    populatePeopleDropdowns();
+
+  } catch (err) {
+    console.error('Failed to load people:', err);
+  }
+}
+
+function populatePeopleDropdowns() {
+  const personSelect = document.getElementById('person-select');
+  const parentSelect = document.getElementById('new-person-parent');
+
+  if (!personSelect || !parentSelect) return;
+
+  // Populate "Link to existing person" dropdown
+  personSelect.innerHTML = '<option value="">Select a person...</option>' +
+    allPeople.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+
+  // Populate "Parent" dropdown for new person
+  parentSelect.innerHTML = '<option value="">No parent (root person)</option>' +
+    allPeople.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+}
+
+// ─────────────────────────────────────────────
+// OPEN APPROVAL MODAL
+// ─────────────────────────────────────────────
+window.openApprovalModal = async function(userId, userName, userEmail, userNote) {
+  currentApprovalUserId = userId;
+
+  // Populate modal
+  document.getElementById('modal-user-name').textContent = userName;
+  document.getElementById('modal-user-email').textContent = userEmail;
+  document.getElementById('modal-user-note').innerHTML = 
+    `<strong>"Who are you?"</strong><br>${escapeHtml(userNote || 'No note provided')}`;
+
+  // Reset form
+  document.querySelector('input[name="link-option"][value="existing"]').checked = true;
+  document.getElementById('existing-person-section').style.display = 'block';
+  document.getElementById('new-person-section').style.display = 'none';
+  document.getElementById('person-select').value = '';
+  document.getElementById('new-person-name').value = '';
+  document.getElementById('new-person-parent').value = '';
+
+  // Show modal
+  document.getElementById('approval-modal').classList.add('visible');
+
+  // Load people if not already loaded
+  if (allPeople.length === 0) {
+    await loadAllPeople();
+  }
+};
+
+// ─────────────────────────────────────────────
+// CLOSE APPROVAL MODAL
+// ─────────────────────────────────────────────
+window.closeApprovalModal = function() {
+  document.getElementById('approval-modal').classList.remove('visible');
+  currentApprovalUserId = null;
+};
+
+// ─────────────────────────────────────────────
+// RADIO BUTTON HANDLERS
+// ─────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const radioButtons = document.querySelectorAll('input[name="link-option"]');
+  
+  radioButtons.forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      // Hide all sections
+      document.getElementById('existing-person-section').style.display = 'none';
+      document.getElementById('new-person-section').style.display = 'none';
+
+      // Show selected section
+      if (e.target.value === 'existing') {
+        document.getElementById('existing-person-section').style.display = 'block';
+      } else if (e.target.value === 'new') {
+        document.getElementById('new-person-section').style.display = 'block';
+      }
+    });
+  });
+});
+
+// ─────────────────────────────────────────────
+// CONFIRM APPROVAL
+// ─────────────────────────────────────────────
+window.confirmApproval = async function() {
+  if (!currentApprovalUserId) return;
+
+  const linkOption = document.querySelector('input[name="link-option"]:checked').value;
+  const confirmBtn = document.getElementById('confirm-approve-btn');
+
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = 'Processing...';
 
   try {
-    const response = await fetch(`http://127.0.0.1:8000/api/admin/users/${userId}/approve`, {
+    // Step 1: Approve the user
+    const approveResponse = await fetch(`http://127.0.0.1:8000/api/admin/users/${currentApprovalUserId}/approve`, {
       method: 'POST',
       credentials: 'include',
       headers: getHeaders()
     });
 
-    if (!response.ok) throw new Error('Approval failed');
+    if (!approveResponse.ok) throw new Error('Approval failed');
 
+    // Step 2: Handle linking based on option
+    if (linkOption === 'existing') {
+      const personId = document.getElementById('person-select').value;
+      
+      if (!personId) {
+        alert('Please select a person or choose "Link later"');
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Approve User';
+        return;
+      }
+
+      await linkUserToPerson(currentApprovalUserId, personId);
+
+    } else if (linkOption === 'new') {
+      const newName = document.getElementById('new-person-name').value.trim();
+      
+      if (!newName) {
+        alert('Please enter a name for the new person');
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Approve User';
+        return;
+      }
+
+      const parentId = document.getElementById('new-person-parent').value || null;
+      
+      // Create new person
+      const personId = await createNewPerson(newName, parentId);
+      
+      // Link user to newly created person
+      await linkUserToPerson(currentApprovalUserId, personId);
+    }
+
+    // Success!
     alert('User approved successfully!');
+    closeApprovalModal();
     
     // Reload data
     loadStats();
@@ -208,8 +351,52 @@ window.approveUser = async function(userId) {
 
   } catch (err) {
     console.error('Approval failed:', err);
-    alert('Failed to approve user');
+    alert('Failed to approve user: ' + err.message);
+  } finally {
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = 'Approve User';
   }
+};
+
+// ─────────────────────────────────────────────
+// HELPER: Link User to Person
+// ─────────────────────────────────────────────
+async function linkUserToPerson(userId, personId) {
+  const response = await fetch(`http://127.0.0.1:8000/api/admin/users/${userId}/link`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: getHeaders(),
+    body: JSON.stringify({ person_id: parseInt(personId) })
+  });
+
+  if (!response.ok) throw new Error('Failed to link user to person');
+}
+
+// ─────────────────────────────────────────────
+// HELPER: Create New Person
+// ─────────────────────────────────────────────
+async function createNewPerson(name, parentId) {
+  const response = await fetch('http://127.0.0.1:8000/api/people', {
+    method: 'POST',
+    credentials: 'include',
+    headers: getHeaders(),
+    body: JSON.stringify({
+      name: name,
+      parent_id: parentId ? parseInt(parentId) : null
+    })
+  });
+
+  if (!response.ok) throw new Error('Failed to create person');
+
+  const person = await response.json();
+  return person.id;
+}
+
+// ─────────────────────────────────────────────
+// APPROVE USER (Legacy - now opens modal)
+// ─────────────────────────────────────────────
+window.approveUser = function(userId, userName, userEmail, userNote) {
+  openApprovalModal(userId, userName, userEmail, userNote);
 };
 
 // ─────────────────────────────────────────────
