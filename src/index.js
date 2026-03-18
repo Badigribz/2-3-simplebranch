@@ -2,14 +2,30 @@ import * as THREE from 'three';
 import { GLTFLoader }    from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RGBELoader }    from 'three/examples/jsm/loaders/RGBELoader.js'; 
-import { requireAuth } from './auth.js';
+import { checkAuth } from './auth.js';
 import { logout } from './auth.js';
 
 
 (async function initializeTree() {
-  // Check authentication first
-  const user = await requireAuth();
-  if (!user) return; // Will redirect to login if not authenticated
+  // Check authentication (but don't require it - allow public viewing)
+  const user = await checkAuth();
+  
+  // Show appropriate UI based on login status
+  if (user) {
+    // User is logged in
+    document.getElementById('authenticated-mode').style.display = 'flex';
+    document.getElementById('public-mode').style.display = 'none';
+    document.getElementById('user-info').textContent = `${user.name} (${user.role})`;
+    document.getElementById('logout-btn').addEventListener('click', logout);
+    
+    console.log('Tree loaded in authenticated mode');
+  } else {
+    // User is NOT logged in (public mode)
+    document.getElementById('authenticated-mode').style.display = 'none';
+    document.getElementById('public-mode').style.display = 'flex';
+    
+    console.log('Tree loaded in public mode');
+  }
 
 // ─────────────────────────────────────────────
 // XSRF TOKEN HELPERS
@@ -614,13 +630,32 @@ const panelDelete   = document.getElementById('btn-delete');
 const panelFocus    = document.getElementById('btn-focus');
 
 function updateInfoPanel(personData) {
-  if (!personData) { panel.classList.remove('visible'); return; }
-  panelName.textContent = personData.name;
-  panelId.textContent   = `ID: ${personData.id}`;
-  panel.classList.add('visible');
+  if (!personData) {
+    panel.classList.remove('visible');
+    document.getElementById('login-banner').style.display = 'none';
+    return;
+  }
+  
+  // If user is logged in, show the edit panel
+  if (window.currentUser) {
+    panelName.textContent = personData.name;
+    panelId.textContent   = `ID: ${personData.id}`;
+    panel.classList.add('visible');
+    document.getElementById('login-banner').style.display = 'none';
+  } else {
+    // If user is NOT logged in, hide edit panel and show login banner
+    panel.classList.remove('visible');
+    document.getElementById('login-banner').style.display = 'block';
+  }
 }
 
 panelRename?.addEventListener('click', async () => {
+  if (!window.currentUser) {
+    alert('Please login to edit the tree');
+    window.location.href = './login.html';
+    return;
+  }
+  
   if (!SELECTED_PERSON_ID) return;
 
   const newName = prompt('Rename person:');
@@ -637,6 +672,12 @@ panelRename?.addEventListener('click', async () => {
 });
 
 panelAddChild?.addEventListener('click', async () => {
+  if (!window.currentUser) {
+    alert('Please login to edit the tree');
+    window.location.href = './login.html';
+    return;
+  }
+  
   if (!SELECTED_PERSON_ID) return;
 
   const name = prompt('Child name?');
@@ -653,6 +694,12 @@ panelAddChild?.addEventListener('click', async () => {
 });
 
 panelDelete?.addEventListener('click', async () => {
+  if (!window.currentUser) {
+    alert('Please login to edit the tree');
+    window.location.href = './login.html';
+    return;
+  }
+  
   if (!SELECTED_PERSON_ID) return;
 
   if (!confirm('Delete this person and all their descendants?')) return;
@@ -706,6 +753,12 @@ window.addEventListener('click', async (e) => {
     let obj = hit.object;
 
     if (obj.userData?.isLabel) {
+      if (!window.currentUser) {
+        alert('Please login to edit the tree');
+        window.location.href = './login.html';
+        return;
+      }
+      
       const newName = prompt('Rename person:');
       if (!newName?.trim()) return;
 

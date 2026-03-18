@@ -40,6 +40,36 @@ export async function requireAuth() {
   }
 }
 
+// NEW: Check auth WITHOUT redirecting (for public pages)
+export async function checkAuth() {
+  try {
+    const response = await fetch('http://127.0.0.1:8000/api/user', {
+      credentials: 'include',
+      headers: { 'Accept': 'application/json' }
+    });
+
+    if (!response.ok) {
+      // Not authenticated - but that's okay
+      console.log('User not logged in (public mode)');
+      window.currentUser = null;
+      return null;
+    }
+
+    const user = await response.json();
+    console.log('Authenticated as:', user.name, `(${user.role})`);
+
+    // Store user data globally
+    window.currentUser = user;
+
+    return user;
+
+  } catch (err) {
+    console.error('Auth check failed:', err);
+    window.currentUser = null;
+    return null;
+  }
+}
+
 // Optional: Check if user has a specific role
 export function requireRole(role) {
   if (!window.currentUser) {

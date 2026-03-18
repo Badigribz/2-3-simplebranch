@@ -257,8 +257,132 @@
     <span>/ lineage</span>
   </div>
 
+  <!-- Auth buttons (top right) -->
+  <div id="auth-bar" style="
+    position: fixed;
+    top: 12px;
+    right: 20px;
+    z-index: 100;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  ">
+    <!-- Show when NOT logged in -->
+    <div id="public-mode" style="display: none;">
+      <a href="./login.html" class="auth-btn" style="
+        padding: 8px 18px;
+        background: rgba(40, 100, 200, 0.45);
+        border: 1px solid rgba(100, 180, 255, 0.5);
+        border-radius: 8px;
+        color: #e8f4ff;
+        text-decoration: none;
+        cursor: pointer;
+        font-size: 11px;
+        font-family: inherit;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        transition: all 0.2s ease;
+        display: inline-block;
+      ">
+        Login
+      </a>
+      <a href="./register.html" class="auth-btn" style="
+        padding: 8px 18px;
+        background: rgba(50, 180, 100, 0.35);
+        border: 1px solid rgba(100, 255, 140, 0.4);
+        border-radius: 8px;
+        color: #ccffdd;
+        text-decoration: none;
+        cursor: pointer;
+        font-size: 11px;
+        font-family: inherit;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        transition: all 0.2s ease;
+        display: inline-block;
+      ">
+        Join Family
+      </a>
+    </div>
+
+    <!-- Show when logged in -->
+    <div id="authenticated-mode" style="display: none;">
+      <span id="user-info" style="
+        font-size: 11px;
+        color: rgba(180, 215, 255, 0.8);
+        letter-spacing: 0.05em;
+        margin-right: 8px;
+      "></span>
+      <button id="logout-btn" style="
+        padding: 8px 18px;
+        background: rgba(200, 50, 50, 0.35);
+        border: 1px solid rgba(255, 100, 100, 0.4);
+        border-radius: 8px;
+        color: #ffcccc;
+        cursor: pointer;
+        font-size: 11px;
+        font-family: inherit;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        transition: all 0.2s ease;
+      ">
+        Logout
+      </button>
+    </div>
+  </div>
+
+  <!-- Login to Edit Banner (show when not logged in AND orb selected) -->
+  <div id="login-banner" style="
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, rgba(40, 100, 200, 0.95), rgba(30, 80, 180, 0.95));
+    border: 1px solid rgba(100, 180, 255, 0.6);
+    border-radius: 12px;
+    padding: 16px 24px;
+    z-index: 100;
+    display: none;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(8px);
+  ">
+    <div style="font-size: 14px; color: #e8f4ff; text-align: center; margin-bottom: 8px; font-weight: 600;">
+      Want to edit the tree?
+    </div>
+    <div style="font-size: 12px; color: rgba(200, 220, 255, 0.8); text-align: center; margin-bottom: 12px;">
+      Login to add, edit, and manage family members
+    </div>
+    <div style="display: flex; gap: 10px; justify-content: center;">
+      <a href="./login.html" style="
+        padding: 8px 20px;
+        background: rgba(255, 255, 255, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        border-radius: 6px;
+        color: #fff;
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 600;
+        transition: all 0.2s ease;
+      ">Login</a>
+      <a href="./register.html" style="
+        padding: 8px 20px;
+        background: rgba(50, 200, 120, 0.9);
+        border: 1px solid rgba(100, 255, 140, 0.6);
+        border-radius: 6px;
+        color: #fff;
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 600;
+        transition: all 0.2s ease;
+      ">Register</a>
+    </div>
+  </div>
+
   <!-- Logout button -->
-  <button id="logout-btn">Logout</button>
+  <!-- <button id="logout-btn">Logout</button> -->
 
   <!-- Info panel (slides in on selection) -->
   <div id="info-panel">
