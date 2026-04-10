@@ -18,6 +18,11 @@ import { logout } from './auth.js';
     document.getElementById('user-info').textContent = `${user.name} (${user.role})`;
     document.getElementById('logout-btn').addEventListener('click', logout);
     
+    // Show Admin Panel button if user is admin
+    if (user.role === 'admin') {
+      document.getElementById('admin-panel-btn').style.display = 'inline-block';
+    }
+    
     console.log('Tree loaded in authenticated mode');
   } else {
     // User is NOT logged in (public mode)
