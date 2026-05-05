@@ -8,6 +8,28 @@ import { requireAuth } from './auth.js';
   if (!user) return; // Will redirect to login if not authenticated
 
   // ─────────────────────────────────────────────
+  // XSRF TOKEN HELPERS
+  // ─────────────────────────────────────────────
+  function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return null;
+  }
+
+  function getAuthHeaders() {
+    const xsrfToken = getCookie('XSRF-TOKEN');
+    const decodedToken = xsrfToken ? decodeURIComponent(xsrfToken) : '';
+    
+    return {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+      'X-XSRF-TOKEN': decodedToken
+    };
+  }
+
+  // ─────────────────────────────────────────────
   // GLOBAL STATE
   // ─────────────────────────────────────────────
   let currentPerson = null;
@@ -52,7 +74,7 @@ import { requireAuth } from './auth.js';
 
   function loadPerson() {
     fetch(`http://127.0.0.1:8000/api/people/${personId}`, {
-      credentials: 'include',  // ← ADDED
+      credentials: 'include',
       headers: { 'Accept': 'application/json' }
     })
       .then(res => {
@@ -156,11 +178,8 @@ import { requireAuth } from './auth.js';
     try {
       const response = await fetch(`http://127.0.0.1:8000/api/people/${personId}`, {
         method: 'PATCH',
-        credentials: 'include',  // ← ADDED
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
+        credentials: 'include',
+        headers: getAuthHeaders(),
         body: JSON.stringify(updatedData)
       });
 
@@ -233,12 +252,18 @@ import { requireAuth } from './auth.js';
     formData.append('photo', file);
 
     try {
+      // Get XSRF token for FormData upload
+      const xsrfToken = getCookie('XSRF-TOKEN');
+      const decodedToken = xsrfToken ? decodeURIComponent(xsrfToken) : '';
+
       const response = await fetch(`http://127.0.0.1:8000/api/people/${personId}/photo`, {
         method: 'POST',
-        credentials: 'include',  // ← ADDED
+        credentials: 'include',
         body: formData,
         headers: {
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-XSRF-TOKEN': decodedToken
         }
       });
 
@@ -268,7 +293,7 @@ import { requireAuth } from './auth.js';
   // ─────────────────────────────────────────────
   const galleryBtn = document.getElementById('gallery-btn');
   if (galleryBtn && personId) {
-    galleryBtn.href = `/gallery.html?id=${personId}`;
+    galleryBtn.href = `./gallery.html?id=${personId}`;
   }
 
   // ─────────────────────────────────────────────
@@ -277,7 +302,7 @@ import { requireAuth } from './auth.js';
   async function loadGallerySummary() {
     try {
       const response = await fetch(`http://127.0.0.1:8000/api/people/${personId}/photos`, {
-        credentials: 'include',  // ← ADDED
+        credentials: 'include',
         headers: { 'Accept': 'application/json' }
       });
       if (!response.ok) throw new Error('Failed to load photos');
@@ -320,6 +345,10 @@ import { requireAuth } from './auth.js';
       }
     }
 
+    // Get XSRF token once for all uploads
+    const xsrfToken = getCookie('XSRF-TOKEN');
+    const decodedToken = xsrfToken ? decodeURIComponent(xsrfToken) : '';
+
     // Upload each photo
     const uploadPromises = files.map(async (file) => {
       const formData = new FormData();
@@ -334,9 +363,13 @@ import { requireAuth } from './auth.js';
 
       const response = await fetch(`http://127.0.0.1:8000/api/people/${personId}/photos`, {
         method: 'POST',
-        credentials: 'include',  // ← ADDED
+        credentials: 'include',
         body: formData,
-        headers: { 'Accept': 'application/json' }
+        headers: { 
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-XSRF-TOKEN': decodedToken
+        }
       });
 
       if (!response.ok) throw new Error(`Failed to upload ${file.name}`);
@@ -360,7 +393,7 @@ import { requireAuth } from './auth.js';
   async function loadGalleryPhotos() {
     try {
       const response = await fetch(`http://127.0.0.1:8000/api/people/${personId}/photos`, {
-        credentials: 'include',  // ← ADDED
+        credentials: 'include',
         headers: { 'Accept': 'application/json' }
       });
       if (!response.ok) throw new Error('Failed to load photos');
@@ -408,10 +441,18 @@ import { requireAuth } from './auth.js';
     if (!confirm('Delete this photo from the gallery?')) return;
 
     try {
+      // Get XSRF token
+      const xsrfToken = getCookie('XSRF-TOKEN');
+      const decodedToken = xsrfToken ? decodeURIComponent(xsrfToken) : '';
+
       const response = await fetch(`http://127.0.0.1:8000/api/photos/${photoId}`, {
         method: 'DELETE',
-        credentials: 'include',  // ← ADDED
-        headers: { 'Accept': 'application/json' }
+        credentials: 'include',
+        headers: { 
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-XSRF-TOKEN': decodedToken
+        }
       });
 
       if (!response.ok) throw new Error('Failed to delete photo');
