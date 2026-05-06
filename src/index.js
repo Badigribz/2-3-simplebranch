@@ -362,12 +362,12 @@ const ORB_SELECTED_MAT = new THREE.MeshStandardMaterial({
 // LABEL SPRITE
 // ─────────────────────────────────────────────
 function createLabelSprite(text, personId) {
-  const W = 320, H = 72;
+  const W = 240, H = 52;  // Smaller canvas (was 320x72)
   const canvas = document.createElement('canvas');
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
 
-  const r = 22;
+  const r = 10;  // Smaller corner radius
   ctx.beginPath();
   ctx.moveTo(r, 0); ctx.lineTo(W - r, 0);
   ctx.quadraticCurveTo(W, 0, W, r);
@@ -386,22 +386,28 @@ function createLabelSprite(text, personId) {
   ctx.fill();
 
   ctx.strokeStyle = 'rgba(80,160,255,0.75)';
-  ctx.lineWidth = 2.5;
+  ctx.lineWidth = 1;  // Slightly thinner border
   ctx.stroke();
 
-  ctx.font = 'bold 26px "Trebuchet MS", sans-serif';
+  ctx.font = 'bold 20px "Trebuchet MS", sans-serif';  // Smaller font (was 26px)
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.shadowColor = 'rgba(80,160,255,0.9)';
-  ctx.shadowBlur = 10;
+  ctx.shadowBlur = 8;
   ctx.fillStyle = '#e8f4ff';
   ctx.fillText(text, W / 2, H / 2);
 
   const texture = new THREE.CanvasTexture(canvas);
   const sprite  = new THREE.Sprite(
-    new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false })
+    new THREE.SpriteMaterial({ 
+      map: texture, 
+      transparent: true, 
+      depthWrite: false,
+      depthTest: false  // ← CRITICAL: Always render on top, never hidden
+    })
   );
-  sprite.scale.set(1.7, 0.38, 1);
+  sprite.scale.set(1.3, 0.28, 1);  // Smaller scale (was 1.7, 0.38)
+  sprite.renderOrder = 999;  // ← Render after everything else
   sprite.userData = { isLabel: true, personId };
   return sprite;
 }
@@ -463,7 +469,7 @@ function createFamilyNode({ name, id }) {
   group.add(anchor);
 
   const label = createLabelSprite(name, id);
-  label.position.set(0, 0.52, 0);
+  label.position.set(0, 0.05, 0.3);  // Much closer (was 0.52), slightly forward
   group.add(label);
 
   group.userData = { id, name, anchor, orb, halo };
